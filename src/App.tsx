@@ -1,0 +1,1491 @@
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+
+import {
+  answer,
+  analysisReport,
+  download,
+  ratioText,
+  periodText,
+  relationshipSummary,
+  friendlyUnavailable,
+  calculationLabel,
+  type Analysis,
+  type Metric,
+} from "./analysis";
+
+import { moduleInfo, updatedLabel, priorityLabel, type ModuleKey } from "./polish";
+
+type Key = ModuleKey;
+
+const INK = "#29348f",
+  SKY = "#38bdf8",
+  CREAM = "#f9f5f1",
+  WINE = "#8f2934";
+
+const META: Record<Key, { q: string; title: string; tab: string }> = {
+  predict: { q: "What do you want to Predict?", title: "Prediction", tab: "Predict" },
+  recommend: {
+    q: "What do you want to find recommendation of?",
+    title: "Recommendation",
+    tab: "Recommend",
+  },
+  charts: { q: "What do you want to get charts of?", title: "Charts", tab: "Charts" },
+  correlation: {
+    q: "What do you want to get correlation of?",
+    title: "Correlation",
+    tab: "Correlation",
+  },
+  sentiment: { q: "What do you want to get sentiment of?", title: "Sentiment", tab: "Sentiment" },
+  demand: { q: "What do you want to get demand of?", title: "Demand", tab: "Demand" },
+};
+const ORDER = Object.keys(META) as Key[];
+
+const Results = createContext<Analysis | null>(null);
+function useAnalysis() {
+  return useContext(Results)!;
+}
+
+function StatusBadge({ module, analysis }: { module: Key; analysis: Analysis | null }) {
+  const status = moduleInfo(module, analysis).status;
+  return (
+    <span
+      aria-label={`${META[module].tab} status: ${status}`}
+      className="inline-block rounded-full bg-ink/10 px-2.5 py-1 text-xs font-semibold text-ink"
+    >
+      {status}
+    </span>
+  );
+}
+function ModuleBrief({ module }: { module: Key }) {
+  const analysis = useAnalysis();
+  const info = moduleInfo(module, analysis);
+  const [message, setMessage] = useState("");
+  const [copying, setCopying] = useState(false);
+  const copy = async () => {
+    setCopying(true);
+    setMessage("");
+    try {
+      const label =
+        analysis.source_kind === "synthetic"
+          ? "Synthetic demo (fictional records)"
+          : "Uploaded dataset";
+      await navigator.clipboard.writeText(`${label}\n${info.finding}`);
+      setMessage("Finding copied.");
+    } catch {
+      setMessage("Copy was blocked. Select the finding and copy it manually.");
+    } finally {
+      setCopying(false);
+    }
+  };
+  return (
+    <div className="mb-5 space-y-3">
+      <StatusBadge module={module} analysis={analysis} />
+      <p data-testid="module-takeaway" className="font-medium text-ink">
+        {info.finding}
+      </p>
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
+        <button
+          type="button"
+          aria-label={`Copy ${META[module].tab} finding`}
+          disabled={copying}
+          onClick={() => void copy()}
+          className="neu-sm min-h-11 rounded-xl px-3 text-sm text-ink"
+        >
+          {copying ? "Copying..." : "Copy finding"}
+        </button>
+        <details className="min-w-0 text-sm">
+          <summary className="font-semibold text-ink">Why this matters</summary>
+          <p className="max-w-prose pb-2 text-slate-700">{info.why}</p>
+        </details>
+      </div>
+      <p role="status" className="text-sm text-slate-700">
+        {message}
+      </p>
+    </div>
+  );
+}
+function UpdatedAt({ at }: { at: number }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, [at]);
+  return (
+    <p className="mt-2 text-sm text-slate-700">
+      <time dateTime={new Date(at).toISOString()} title={new Date(at).toLocaleString()}>
+        {updatedLabel(at, now)}
+      </time>
+      <span className="text-slate-600"> · analysis of this file</span>
+    </p>
+  );
+}
+
+/* ---------- primitives ---------- */
+function Logo({ size = 36 }: { size?: number }) {
+  const fills = [INK, SKY, INK, SKY, INK, SKY];
+  return (
+    <svg width={size} height={size} viewBox="-50 -50 100 100" aria-label="Speculara logo">
+      <circle r="48" fill={CREAM} stroke={INK} strokeWidth="3" />
+      {fills.map((f, i) => (
+        <path
+          key={i}
+          transform={`rotate(${i * 60})`}
+          d="M0 -44 L26 -38 L8 -2 Z"
+          fill={f}
+          stroke={CREAM}
+          strokeWidth="1.5"
+        />
+      ))}
+      <circle r="9" fill={CREAM} stroke={INK} strokeWidth="2" />
+      <circle cx="-14" cy="-26" r="3" fill="#fff" opacity=".7" />
+    </svg>
+  );
+}
+
+function Card({
+  children,
+  className = "",
+  label,
+}: {
+  children: ReactNode;
+  className?: string;
+  label?: string;
+}) {
+  return (
+    <section aria-label={label} className={`neu rounded-3xl p-4 sm:p-6 ${className}`}>
+      {children}
+    </section>
+  );
+}
+function Numbers({ children }: { children: ReactNode }) {
+  return (
+    <details className="mt-4 text-sm">
+      <summary className="font-semibold text-ink">See the numbers</summary>
+      <div className="mt-3 space-y-3 text-slate-700">{children}</div>
+    </details>
+  );
+}
+const Well = ({ children, className = "" }: { children: ReactNode; className?: string }) => (
+  <div className={`neu-in rounded-2xl p-3 sm:p-4 ${className}`}>{children}</div>
+);
+const H = ({ children, sub }: { children: ReactNode; sub?: string }) => (
+  <div className="mb-3">
+    <h3 className="font-display text-lg font-bold text-ink">{children}</h3>
+    {sub && <p className="text-xs text-slate-600">{sub}</p>}
+  </div>
+);
+
+function Pills<T extends string>({
+  items,
+  value,
+  onChange,
+}: {
+  items: T[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div
+      className="no-bar -mx-1 flex gap-3 overflow-x-auto p-2"
+      role="group"
+      aria-label="Analysis options"
+    >
+      {items.map((i) => (
+        <button
+          key={i}
+          aria-pressed={i === value}
+          onClick={() => onChange(i)}
+          className={`min-h-10 whitespace-nowrap rounded-full px-4 py-2 text-sm transition focus-visible:outline-2 focus-visible:outline-sky ${i === value ? "neu-in font-semibold text-ink" : "neu-sm text-slate-600 hover:text-ink"}`}
+        >
+          {i === "post_id" ? "Post" : calculationLabel(i)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Query({
+  label,
+  value,
+  onChange,
+  cta,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  cta: string;
+}) {
+  const [draft, setDraft] = useState(value);
+  return (
+    <form
+      className="neu-in flex flex-col gap-2 rounded-2xl p-2 sm:flex-row sm:items-center sm:pl-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onChange(draft.trim() || value);
+      }}
+    >
+      <label className="shrink-0 px-2 pt-1 text-sm text-slate-600 sm:p-0">{label}</label>
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        className="min-h-10 min-w-0 flex-1 bg-transparent px-2 text-sm outline-none"
+      />
+      <button className="neu-btn min-h-11 rounded-xl px-5 py-2.5 text-sm font-medium text-white">
+        {cta}
+      </button>
+    </form>
+  );
+}
+
+const Explain = ({ children }: { children: ReactNode }) => (
+  <div className="pt-5 text-sm">
+    <p className="font-semibold text-ink">What this shows</p>
+    <p className="mt-1 text-slate-600">{children}</p>
+  </div>
+);
+
+const Stat = ({ l, v, c = INK }: { l: string; v: string | number; c?: string }) => (
+  <div className="neu-in rounded-2xl p-3 text-center">
+    <p
+      className="font-display text-lg font-bold [overflow-wrap:anywhere] sm:text-xl"
+      style={{ color: c }}
+    >
+      {v}
+    </p>
+    <p className="text-xs text-slate-600">{l}</p>
+  </div>
+);
+
+/* diverging bar: left vs right share */
+const Split = ({
+  l,
+  r,
+  lv,
+  ll,
+  rl,
+}: {
+  l: string;
+  r?: string;
+  lv: number;
+  ll: string;
+  rl: string;
+}) => (
+  <div className="mb-3">
+    <div className="mb-1 flex justify-between text-xs text-slate-600">
+      <span>
+        {ll} {lv}%
+      </span>
+      <span>
+        {rl} {100 - lv}%
+      </span>
+    </div>
+    <div className="neu-in flex h-3 overflow-hidden rounded-full">
+      <i style={{ width: `${lv}%`, background: l }} />
+      <i style={{ width: `${100 - lv}%`, background: r ?? WINE }} />
+    </div>
+  </div>
+);
+
+/* Bar chart with axis, gridlines, value labels and optional average line */
+function BarChart({
+  values,
+  labels,
+  max,
+  fmt,
+  avg,
+  label,
+}: {
+  values: number[];
+  labels: string[];
+  max: number;
+  fmt: (v: number) => string;
+  avg?: boolean;
+  label: string;
+}) {
+  const top = Math.max(...values),
+    mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const many = values.length > 8;
+  return (
+    <div role="img" aria-label={`${label}. Highest ${labels[values.indexOf(top)]}: ${fmt(top)}`}>
+      <div className="flex gap-2">
+        <div className="flex h-44 w-16 shrink-0 flex-col justify-between pb-0 text-right text-[10px] leading-none text-slate-600">
+          {[1, 0.75, 0.5, 0.25, 0].map((t) => (
+            <span key={t}>{fmt(max * t)}</span>
+          ))}
+        </div>
+        <div className="relative h-44 min-w-0 flex-1">
+          {[0, 25, 50, 75, 100].map((t) => (
+            <div
+              key={t}
+              className="absolute inset-x-0 border-t border-slate-300/70"
+              style={{ bottom: `${t}%` }}
+            />
+          ))}
+          <div className="absolute inset-0 flex items-end gap-1.5 sm:gap-2.5">
+            {values.map((v, i) => (
+              <div
+                key={i}
+                title={`${labels[i]}: ${fmt(v)}`}
+                className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
+              >
+                {(!many || v === top) && (
+                  <span className="mb-1 text-[10px] font-semibold text-ink">{fmt(v)}</span>
+                )}
+                <div
+                  className="w-full rounded-t-lg transition-all duration-500"
+                  style={{
+                    height: `${(v / max) * 100}%`,
+                    background:
+                      v === top
+                        ? `linear-gradient(180deg,#3544ad,${INK})`
+                        : `linear-gradient(180deg,${SKY},#2a9fd8)`,
+                    boxShadow: "2px 2px 5px rgba(41,52,143,.25)",
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          {avg && (
+            <div
+              className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed"
+              style={{ bottom: `${(mean / max) * 100}%`, borderColor: WINE }}
+            >
+              <span className="absolute -top-5 right-0 rounded bg-mist px-1 text-[10px] font-semibold text-wine">
+                avg {fmt(mean)}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="mt-1.5 flex gap-2">
+        <span className="w-16 shrink-0" />
+        <div className="flex min-w-0 flex-1 gap-1.5 sm:gap-2.5">
+          {labels.map((l, i) => (
+            <span
+              key={i}
+              className="min-w-0 flex-1 truncate text-center text-[10px] text-slate-600"
+            >
+              {l}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Dataset-driven analytical modules ---------- */
+const number = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+function Unavailable({ children }: { children: ReactNode }) {
+  return (
+    <Well>
+      <p className="font-semibold text-ink">A little more data will help</p>
+      <p className="mt-2 text-sm text-slate-700">{children}</p>
+    </Well>
+  );
+}
+function Predict() {
+  const analysis = useAnalysis();
+  const f = analysis.predict;
+  return (
+    <Card label="Predict results">
+      <H sub="A guide to what might happen next.">Predict</H>
+      <ModuleBrief module="predict" />
+      {f.available ? (
+        <>
+          <Stat
+            l={`${calculationLabel(f.metric)} estimated for ${f.points[0].label}`}
+            v={number(f.points[0].value)}
+          />
+          <p className="mt-3 text-sm text-slate-700">An estimate, not a guarantee.</p>
+          <p className="mt-2 text-sm text-slate-700">
+            Use this as a starting point, then check what happens.
+          </p>
+          <Well className="mt-4">
+            <H>Next seven days</H>
+            <BarChart
+              values={f.points.map((p) => p.value)}
+              labels={f.points.map((p) => p.label.slice(5))}
+              max={Math.max(1, ...f.points.map((p) => p.value)) * 1.2}
+              fmt={(v) =>
+                new Intl.NumberFormat(undefined, {
+                  notation: "compact",
+                  maximumFractionDigits: 1,
+                }).format(v)
+              }
+              label={`${f.metric} daily estimate`}
+            />
+          </Well>
+          <Numbers>
+            <H>Model comparison</H>
+            <p>
+              Selected model: {f.selected_model}. Holdout dates:{" "}
+              {f.evaluation.holdout_dates.join(", ")}. Training dates before holdout:{" "}
+              {f.evaluation.train_days}.
+            </p>
+            <table className="w-full text-left">
+              <thead>
+                <tr>
+                  <th scope="col">Model</th>
+                  <th scope="col">MAE ({f.metric} count units)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(f.evaluation.scores).map(([model, score]) => (
+                  <tr key={model}>
+                    <th scope="row">{model}</th>
+                    <td>{number(score)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p>
+              Held-out three-day MAE: {number(f.mae)} {f.metric}. {f.method} {f.notes.join(" ")}
+            </p>
+            <ul>
+              {f.points.map((p) => (
+                <li key={p.label}>
+                  {p.label}: {number(p.value)}
+                </li>
+              ))}
+            </ul>
+          </Numbers>
+        </>
+      ) : (
+        <>
+          <Numbers>{f.reason}</Numbers>
+        </>
+      )}
+    </Card>
+  );
+}
+function RecommendationItem({
+  item,
+  index,
+}: {
+  item: Analysis["recommend"][number];
+  index: number;
+}) {
+  return (
+    <li className="neu-in rounded-2xl p-4">
+      <p className="mb-2 text-xs font-semibold text-wine">{priorityLabel(index)}</p>
+      <p className="font-display font-semibold text-ink">
+        {index + 1}. {item.title}
+      </p>
+      <p className="mt-2 text-sm text-slate-700">{item.evidence}</p>
+      <p className="mt-2 text-sm text-slate-700">
+        <b>Try this:</b> {item.action}
+      </p>
+      {item.details && <Numbers>{item.details}</Numbers>}
+    </li>
+  );
+}
+function Recommend() {
+  const a = useAnalysis();
+  return (
+    <Card label="Recommendations results">
+      <H sub="Small steps you can test, based on your data.">Your next decisions</H>
+      <ModuleBrief module="recommend" />
+      <p className="mb-3 text-xs text-slate-600">Suggested order to try, not predicted impact.</p>
+      <ol className="space-y-4">
+        {a.recommend.slice(0, 3).map((item, index) => (
+          <RecommendationItem key={item.title} item={item} index={index} />
+        ))}
+      </ol>
+      {a.recommend.length > 3 && (
+        <details className="mt-4 text-sm">
+          <summary className="font-semibold text-ink">More ideas</summary>
+          <ol start={4} className="mt-3 space-y-4">
+            {a.recommend.slice(3).map((item, index) => (
+              <RecommendationItem key={item.title} item={item} index={index + 3} />
+            ))}
+          </ol>
+        </details>
+      )}
+      <p className="mt-4 text-sm text-slate-600">Try one change at a time and check the results.</p>
+    </Card>
+  );
+}
+function Calculations({ kind }: { kind: "charts" | "periods" }) {
+  const a = useAnalysis();
+  if (kind === "periods")
+    return (
+      <Well className="mt-4">
+        <H>Period comparisons</H>
+        <p className="text-sm whitespace-pre-line">
+          {Object.entries(a.periods)
+            .map(([metric, p]) => periodText(metric, p!))
+            .join("\n") ||
+            "Period comparisons unavailable: need dated numeric metrics and all 14 calendar dates."}
+        </p>
+        <p className="mt-2 text-xs">
+          Latest seven UTC calendar dates versus prior seven; missing dates are not zero activity.
+        </p>
+      </Well>
+    );
+  return (
+    <>
+      <Well className="mt-4">
+        <H>Ratios</H>
+        {Object.entries(a.ratios).map(([k, r]) => (
+          <p className="mb-3 text-sm" key={k}>
+            {ratioText(k, r)}
+          </p>
+        ))}
+      </Well>
+      <Well className="mt-4">
+        <H>Rankings</H>
+        <p className="mb-3 text-xs">
+          Categories: 3 complete positive-view rows and 1,000 views. Posts: unique nonblank IDs and
+          at least 100 views. Exposure heuristics, not statistical significance. Top 10 by rate,
+          then label.
+        </p>
+        {Object.entries(a.rankings).flatMap(([g, rs]) =>
+          Object.entries(rs).map(([k, r]) => (
+            <div key={g + k} className="mb-4">
+              <h4 className="font-semibold">
+                {calculationLabel(g)}: {k.replace(/_/g, " ")}
+              </h4>
+              {!r.available ? (
+                <p className="text-sm">{r.reason}</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr>
+                        {["Label", "Numerator (count)", "Views", "Rate (%)", "Complete rows"].map(
+                          (h) => (
+                            <th scope="col" key={h}>
+                              {h}
+                            </th>
+                          ),
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {r.rows.map((x) => (
+                        <tr key={x.label}>
+                          <th scope="row">{x.label}</th>
+                          <td>{number(x.numerator)}</td>
+                          <td>{number(x.views)}</td>
+                          <td>{x.percent.toFixed(2)}</td>
+                          <td>{x.n}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <p className="text-xs">{r.excluded_groups} excluded groups.</p>
+            </div>
+          )),
+        )}
+      </Well>
+    </>
+  );
+}
+function Charts() {
+  const a = useAnalysis();
+  const [metric, setMetric] = useState<Metric>(a.metrics[0] ?? "views");
+  const groups = Object.keys(a.charts);
+  const [group, setGroup] = useState(groups[0] ?? "");
+  const rows = (a.charts[group] ?? []).filter((r) => r[metric] != null);
+  const pageSize = 12;
+  const [page, setPage] = useState(0);
+  const shown = rows.slice(page * pageSize, (page + 1) * pageSize);
+  return (
+    <Card label="Charts results">
+      <H sub="See how your numbers compare.">Charts</H>
+      <ModuleBrief module="charts" />
+      {!a.metrics.length ? (
+        <p className="text-sm text-slate-700">No chart is available yet.</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {(a.metrics.filter((m) => ["views", "saves", "sales"].includes(m)).length
+              ? a.metrics.filter((m) => ["views", "saves", "sales"].includes(m))
+              : a.metrics.slice(0, 3)
+            ).map((m) => (
+              <Stat key={m} l={`Total ${m}`} v={number(a.totals[m]!)} />
+            ))}
+          </div>
+          <Pills
+            items={a.metrics}
+            value={metric}
+            onChange={(m) => {
+              setMetric(m);
+              setPage(0);
+            }}
+          />
+          {groups.length ? (
+            <>
+              <Pills
+                items={groups}
+                value={group}
+                onChange={(g) => {
+                  setGroup(g);
+                  setPage(0);
+                }}
+              />
+              {shown.length ? (
+                <Well>
+                  <H
+                    sub={`${group}, groups ${page * pageSize + 1} to ${Math.min((page + 1) * pageSize, rows.length)} of ${rows.length}`}
+                  >
+                    {metric}
+                  </H>
+                  <BarChart
+                    values={shown.map((r) => r[metric]!)}
+                    labels={shown.map((r) => r.label)}
+                    max={Math.max(1, ...shown.map((r) => r[metric]!)) * 1.2}
+                    fmt={(v) =>
+                      new Intl.NumberFormat(undefined, {
+                        notation: "compact",
+                        maximumFractionDigits: 1,
+                      }).format(v)
+                    }
+                    label={`${metric} by ${group}`}
+                  />
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <button
+                      className="neu-sm min-h-11 rounded-xl px-4"
+                      disabled={page === 0}
+                      onClick={() => setPage(page - 1)}
+                    >
+                      Previous
+                    </button>
+                    <span className="text-xs">
+                      Page {page + 1} of {Math.max(1, Math.ceil(rows.length / pageSize))}
+                    </span>
+                    <button
+                      className="neu-sm min-h-11 rounded-xl px-4"
+                      disabled={(page + 1) * pageSize >= rows.length}
+                      onClick={() => setPage(page + 1)}
+                    >
+                      Next
+                    </button>
+                  </div>
+                  <details className="mt-4 text-sm">
+                    <summary>View exact chart data</summary>
+                    <div className="overflow-x-auto">
+                      <table className="mt-2 w-full text-left">
+                        <thead>
+                          <tr>
+                            <th scope="col">{group}</th>
+                            <th scope="col">{metric}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {shown.map((r) => (
+                            <tr key={r.label}>
+                              <th scope="row" className="py-1 font-normal">
+                                {r.label}
+                              </th>
+                              <td>{number(r[metric]!)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
+                </Well>
+              ) : (
+                <Unavailable>Add {metric} counts to compare these groups.</Unavailable>
+              )}
+            </>
+          ) : (
+            <Unavailable>
+              Add dates or category names to compare your entries. Your totals are shown above.
+            </Unavailable>
+          )}
+        </>
+      )}
+      <Numbers>
+        <Calculations kind="charts" />
+        <p>
+          Each chart starts at zero. Date groups are daily UTC totals. Blank counts are excluded.
+        </p>
+      </Numbers>
+    </Card>
+  );
+}
+function Correlation() {
+  const a = useAnalysis();
+  const [mode, setMode] = useState("All connections");
+  const pairs = a.correlation.filter(
+    (p) =>
+      mode === "All connections" ||
+      (mode === "Strong connections" ? Math.abs(p.r) >= 0.7 : p.r <= -0.3),
+  );
+  const renderPair = (p: Analysis["correlation"][number]) => {
+    const summary = relationshipSummary(p);
+    return (
+      <li key={p.a + p.b} className="neu-in rounded-2xl p-4">
+        <div className="flex flex-wrap justify-between gap-2">
+          <b className="text-ink">
+            {calculationLabel(p.a)} and {p.b}
+          </b>
+          <span className="text-sm text-slate-600">{summary.strength}</span>
+        </div>
+        {summary.direction !== summary.strength && (
+          <p className="mt-2 font-semibold text-ink">{summary.direction}</p>
+        )}
+        <p className="mt-2 text-sm text-slate-700">{summary.finding}</p>
+        {p.n < 10 && <p className="mt-2 text-sm text-slate-600">{summary.note}</p>}
+        {p.r <= -0.3 && (
+          <p className="mt-2 text-sm text-slate-600">Opposite movement is not automatically bad.</p>
+        )}
+        <Numbers>
+          <p>
+            Pearson r = {p.r}; unadjusted p = {p.p.toExponential(2)}; Spearman rho = {p.spearman_r};
+            unadjusted p = {p.spearman_p.toExponential(2)}; n = {p.n} complete pairs.
+          </p>
+          <p>
+            These statistics describe a pattern, not a cause. Small samples, outliers and repeated
+            observations can affect results. P-values are unadjusted.
+          </p>
+        </Numbers>
+      </li>
+    );
+  };
+  return (
+    <Card label="Correlation results">
+      <H sub="See which numbers tend to change together.">Connections in your data</H>
+      <ModuleBrief module="correlation" />
+      <Pills
+        items={["All connections", "Strong connections", "Opposite movement"]}
+        value={mode}
+        onChange={setMode}
+      />
+      {pairs.length ? (
+        <>
+          <ul className="space-y-3">{pairs.slice(0, 3).map(renderPair)}</ul>
+          {pairs.length > 3 && (
+            <details className="mt-4 text-sm">
+              <summary className="font-semibold text-ink">More connections</summary>
+              <ul className="mt-3 space-y-3">{pairs.slice(3).map(renderPair)}</ul>
+            </details>
+          )}
+        </>
+      ) : (
+        <Unavailable>
+          {a.correlation.length
+            ? "No connections match this choice. Try All connections."
+            : friendlyUnavailable("correlation")}
+        </Unavailable>
+      )}
+      <p className="mt-4 text-sm text-slate-600">
+        This pattern doesn’t prove what caused the change.
+      </p>
+      <p className="mt-2 text-sm text-slate-700">
+        Compare the entries before deciding what to change.
+      </p>
+    </Card>
+  );
+}
+function Sentiment() {
+  const s = useAnalysis().sentiment;
+  return (
+    <Card label="Sentiment results">
+      <H sub="Based on a simple word check">How comments sound</H>
+      <ModuleBrief module="sentiment" />
+      {s.available ? (
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            {Object.entries(s.counts!).map(([k, v]) => (
+              <Stat
+                key={k}
+                l={`${calculationLabel(k)} comments`}
+                v={`${((v / s.n!) * 100).toFixed(1)}%`}
+                c={k === "negative" ? WINE : INK}
+              />
+            ))}
+          </div>
+          <p className="mt-3 text-sm text-slate-700">
+            Read the comments before deciding how to respond.
+          </p>
+          <Numbers>
+            <p>
+              {s.method} Labels describe {s.n} nonempty text entries, not everyone who saw your
+              content.
+            </p>
+            <ul>
+              {Object.entries(s.counts!).map(([k, v]) => (
+                <li key={k}>
+                  {calculationLabel(k)}: {number(v)}
+                </li>
+              ))}
+            </ul>
+            <H>Frequent words</H>
+            <ul>
+              {s.keywords!.map((w) => (
+                <li className="flex justify-between gap-3" key={w.word}>
+                  <span>{w.word}</span>
+                  <b>{w.count}</b>
+                </li>
+              ))}
+            </ul>
+          </Numbers>
+        </>
+      ) : (
+        <>
+          <Numbers>{s.reason}</Numbers>
+        </>
+      )}
+    </Card>
+  );
+}
+function Demand() {
+  const a = useAnalysis(),
+    d = a.demand;
+  const salesPeriod = a.periods.sales;
+  const savesPeriod = a.periods.saves;
+  return (
+    <Card label="Demand results">
+      <H sub="Look at purchases and signs of interest.">Demand</H>
+      <ModuleBrief module="demand" />
+      {d.available ? (
+        <>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {d.sales != null && (
+              <Stat
+                l={salesPeriod?.available ? "Sales in latest week" : "Sales in your data"}
+                v={number(salesPeriod?.available ? salesPeriod.current_total! : d.sales)}
+              />
+            )}
+            {d.saves != null && (
+              <Stat
+                l={savesPeriod?.available ? "Saves in latest week" : "Saves in your data"}
+                v={number(savesPeriod?.available ? savesPeriod.current_total! : d.saves)}
+              />
+            )}
+            {d.inquiries != null && <Stat l="Entries with questions" v={d.inquiries} />}
+            {d.requests != null && <Stat l="Entries asking for more" v={d.requests} />}
+          </div>
+          <p className="mt-3 text-sm text-slate-600">
+            Interest doesn’t always turn into a purchase.
+          </p>
+          <p className="mt-2 text-sm text-slate-700">
+            {salesPeriod?.available || savesPeriod?.available
+              ? "Compare the entries from each week before deciding what to change."
+              : "Review the entries and answer any recurring buying questions."}
+          </p>
+          <Numbers>
+            <Calculations kind="periods" />
+            <p>{d.notes?.join(" ")}</p>
+            <p>
+              Dataset totals: {d.sales == null ? "sales not supplied" : `${number(d.sales)} sales`};{" "}
+              {d.saves == null ? "saves not supplied" : `${number(d.saves)} saves`}. Question and
+              request counts can overlap and are not unique buyers.
+            </p>
+          </Numbers>
+        </>
+      ) : (
+        <>
+          <Numbers>
+            <Calculations kind="periods" />
+            {d.reason}
+          </Numbers>
+        </>
+      )}
+      {!salesPeriod?.available && !savesPeriod?.available && d.available && (
+        <p className="mt-3 text-sm text-slate-700">{friendlyUnavailable("periods")}</p>
+      )}
+    </Card>
+  );
+}
+const VIEWS: Record<Key, () => ReactNode> = {
+  predict: Predict,
+  recommend: Recommend,
+  charts: Charts,
+  correlation: Correlation,
+  sentiment: Sentiment,
+  demand: Demand,
+};
+
+/* ---------- Chatbot ---------- */
+function Chat() {
+  const analysis = useContext(Results);
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [msgs, setMsgs] = useState<{ me: boolean; t: string }[]>([
+    {
+      me: false,
+      t: "Ask what changed, what it means, or what to try next. I use only the data you uploaded.",
+    },
+  ]);
+  const end = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "end" });
+  }, [msgs, open]);
+  const send = (t: string) => {
+    if (!t.trim()) return;
+    const reply = analysis
+      ? answer(t, analysis)
+      : "Upload a dataset or load the labeled synthetic demo first. No social account is connected.";
+    setMsgs((m) => [...m, { me: true, t }, { me: false, t: reply }]);
+    setText("");
+  };
+  const quickQuestions = analysis
+    ? [
+        { label: "What changed?", question: "What changed this week?" },
+        { label: "Where are we losing buyers?", question: "Where are we losing buyers?" },
+        { label: "Which posts should I review?", question: "Which posts should I review?" },
+        { label: "Explain negative", question: "What does negative mean?" },
+      ]
+    : [
+        { label: "What should I do next?", question: "What should I do next?" },
+        { label: "Summarize totals", question: "Summarize totals" },
+        { label: "Explain negative", question: "What does negative mean?" },
+      ];
+  return (
+    <div className="fixed bottom-4 right-4 z-30 flex flex-col items-end gap-2">
+      {open && (
+        <div
+          role="dialog"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setOpen(false);
+          }}
+          aria-label="Ask about your analysis"
+          className="neu flex h-[min(30rem,calc(100dvh-6.5rem))] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl sm:w-96"
+        >
+          <div className="flex shrink-0 items-center justify-between px-4 py-3">
+            <p className="font-display font-bold text-ink">Ask Speculara</p>
+            <button
+              onClick={() => setOpen(false)}
+              aria-label="Close chat"
+              className="neu-sm grid h-9 w-9 place-items-center rounded-full text-ink"
+            >
+              &times;
+            </button>
+          </div>
+          <div
+            className="neu-in neu-scroll mx-3 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain rounded-2xl p-3 text-sm"
+            aria-live="polite"
+          >
+            {msgs.map((m, i) => (
+              <div
+                key={i}
+                className={`max-w-[85%] whitespace-pre-line break-words rounded-2xl px-3 py-2 ${m.me ? "ml-auto bg-ink text-white" : "bg-white/70 text-slate-800"}`}
+              >
+                {m.t}
+              </div>
+            ))}
+            <div ref={end} />
+          </div>
+          <div
+            role="group"
+            aria-label="Suggested questions"
+            className="flex shrink-0 flex-wrap gap-2 px-3 pb-1 pt-3"
+          >
+            {quickQuestions.map(({ label, question }) => (
+              <button
+                key={question}
+                onClick={() => send(question)}
+                className="neu-sm min-h-9 max-w-full rounded-full px-3 py-2 text-left text-xs leading-snug text-ink"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              send(text);
+            }}
+            className="flex shrink-0 gap-2 p-3"
+          >
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Ask about your results"
+              aria-label="Your question"
+              className="neu-in min-h-11 min-w-0 flex-1 rounded-xl bg-transparent px-3 text-sm outline-none"
+            />
+            <button className="neu-btn min-h-11 rounded-xl px-4 text-sm text-white">Send</button>
+          </form>
+        </div>
+      )}
+      <button
+        onClick={() => setOpen(!open)}
+        aria-label={open ? "Close chat" : "Open chat"}
+        aria-expanded={open}
+        className="neu-btn grid h-14 w-14 place-items-center rounded-full text-white"
+      >
+        <svg
+          width="26"
+          height="26"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.5A8 8 0 1 1 21 12z" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+const MARKETS = [
+  "Marketing Teams",
+  "Advertisement Agencies",
+  "Public Relations (PR) Agencies",
+  "Brand Strategists",
+  "Market Research Analysts",
+];
+
+/* ---------- App ---------- */
+export default function App() {
+  const [picked, setPicked] = useState<Key | null>(null);
+  const [tab, setTab] = useState<Key | null>(null);
+  const [err, setErr] = useState("");
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [source, setSource] = useState<{ label: string; demo: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [nudge, setNudge] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [viewRevision, setViewRevision] = useState(0);
+  const [notice, setNotice] = useState("");
+  const [loadingMessage, setLoadingMessage] = useState("");
+  const listRef = useRef<HTMLDivElement>(null);
+  const [revision, setRevision] = useState(0);
+  const analyzeFile = async (file: File, demo = false) => {
+    setErr("");
+    if (!/\.(csv|xlsx)$/i.test(file.name)) {
+      setErr("Choose a CSV or XLSX file.");
+      return;
+    }
+    if (!file.size || file.size > 5 * 1024 * 1024) {
+      setErr("Upload a nonempty file up to 5 MB.");
+      return;
+    }
+    setBusy(true);
+    setNotice("");
+    setLoadingMessage("Sending your file for analysis...");
+    const slowTimer = setTimeout(
+      () =>
+        setLoadingMessage(
+          "Still waiting for the analysis service. The first request can take up to a minute.",
+        ),
+      8000,
+    );
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 60000);
+    try {
+      const base = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+      const response = await fetch(`${base}/api/analyze`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "X-Filename": file.name.toLowerCase().endsWith(".xlsx") ? "upload.xlsx" : "upload.csv",
+        },
+        body: file,
+        signal: controller.signal,
+      });
+      setLoadingMessage("Preparing your results...");
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(
+          typeof data.detail === "string" ? data.detail : "Analysis failed. Check your file.",
+        );
+      if (data.schema_version !== 2)
+        throw new Error("Unsupported analysis schema; version 2 required.");
+      setAnalysis(data);
+      setUpdatedAt(Date.now());
+      setSource({ label: file.name, demo: demo || data.source_kind === "synthetic" });
+      setRevision((v) => v + 1);
+      setPicked("recommend");
+      setTab("charts");
+      setNudge(true);
+    } catch (e) {
+      setErr(
+        e instanceof Error && e.name === "AbortError"
+          ? "Analysis timed out. Render may be waking up; retry shortly."
+          : e instanceof Error
+            ? e.message
+            : "Cannot reach analysis API. Check backend configuration.",
+      );
+    } finally {
+      clearTimeout(timer);
+      clearTimeout(slowTimer);
+      setLoadingMessage("");
+      setBusy(false);
+    }
+  };
+  const loadDemo = async () => {
+    setBusy(true);
+    setNotice("");
+    setLoadingMessage("Opening the synthetic demo file...");
+    setErr("");
+    try {
+      const response = await fetch("/demo/speculara-synthetic.csv");
+      if (!response.ok) throw new Error("Demo file unavailable.");
+      const file = new File([await response.blob()], "speculara-synthetic.csv", {
+        type: "text/csv",
+      });
+      await analyzeFile(file, true);
+    } catch {
+      setErr("Demo file could not load. Try uploading the downloadable CSV.");
+    } finally {
+      setBusy(false);
+      setLoadingMessage("");
+    }
+  };
+  const exportResults = (kind: "report" | "json") => {
+    if (!analysis || !source) return;
+    try {
+      if (kind === "report")
+        download(
+          "speculara-report.md",
+          analysisReport(analysis, `${source.demo ? "SYNTHETIC DEMO: " : ""}${source.label}`),
+        );
+      else
+        download(
+          "speculara-analysis.json",
+          JSON.stringify({ source, ...analysis }, null, 2),
+          "application/json",
+        );
+      setNotice(kind === "report" ? "Report download started." : "Results download started.");
+    } catch {
+      setNotice("The download could not start. Please try again.");
+    }
+  };
+  const resetView = () => {
+    setPicked("recommend");
+    setTab("charts");
+    setViewRevision((v) => v + 1);
+    setErr("");
+    setNudge(false);
+    setNotice("View reset. Your data is unchanged.");
+    setTimeout(() => document.getElementById("result")?.focus(), 0);
+  };
+
+  const others = ORDER.filter((k) => k !== picked);
+  const active = tab && tab !== picked ? tab : others[0];
+  const Primary = picked ? VIEWS[picked] : null;
+  const Secondary = VIEWS[active];
+  const colors = [INK, WINE, INK, WINE, INK, WINE];
+  const locked = !analysis || busy;
+
+  return (
+    <Results.Provider value={analysis}>
+      <div className="min-h-screen pb-24">
+        <header className="sticky top-0 z-20 bg-mist/90 px-3 pt-3 backdrop-blur">
+          <div className="neu mx-auto flex max-w-5xl items-center gap-3 rounded-2xl px-4 py-2.5 sm:px-5">
+            <span className="neu-sm grid h-11 w-11 shrink-0 place-items-center rounded-full">
+              <Logo size={32} />
+            </span>
+            <span className="font-display text-xl font-bold tracking-tight text-ink">
+              Speculara
+            </span>
+            <span className="ml-auto hidden text-xs text-slate-600 md:block">
+              Social media analysis for marketing teams
+            </span>
+          </div>
+        </header>
+
+        <main id="main" className="mx-auto max-w-5xl px-4 sm:px-5">
+          <section className="grid items-center gap-8 py-8 md:grid-cols-[1fr_1.1fr] md:py-10">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-wine">
+                Ad performance, in focus
+              </p>
+              <h1 className="mt-2 font-display text-3xl font-bold leading-tight text-ink md:text-4xl">
+                Turn views, saves, and sales into the next decision.
+              </h1>
+              <p className="mt-3 max-w-md text-slate-700">
+                Upload your CSV or Excel export. Get measured findings, clear limits, and a next
+                action grounded in views, saves and sales.
+              </p>
+            </div>
+
+            <div
+              ref={listRef}
+              className={`neu rounded-[2rem] p-4 transition ${nudge ? "ring-2 ring-sky" : ""}`}
+            >
+              <p className="px-2 pt-1 text-xs font-semibold uppercase tracking-widest text-slate-600">
+                Scroll and choose
+              </p>
+              {nudge && (
+                <p
+                  role="status"
+                  className="mx-2 mt-2 rounded-xl bg-sky/20 px-3 py-2 text-sm font-medium text-ink"
+                >
+                  Analyzed {source?.label}. Choose any module to explore.
+                </p>
+              )}
+              <div className="relative">
+                <ul
+                  className={`neu-scroll mt-2 h-64 snap-y snap-mandatory overflow-y-scroll px-2 py-1 sm:h-72 ${locked ? "opacity-50" : ""}`}
+                  aria-label="Questions"
+                >
+                  {ORDER.map((k, i) => (
+                    <li key={k} className="snap-center">
+                      <button
+                        disabled={locked}
+                        onClick={() => {
+                          setPicked(k);
+                          setTab(null);
+                          setTimeout(
+                            () =>
+                              document
+                                .getElementById("result")
+                                ?.scrollIntoView({ behavior: "smooth" }),
+                            50,
+                          );
+                        }}
+                        className={`my-2 block min-h-14 w-full rounded-2xl px-4 py-4 text-center font-display text-base font-semibold leading-snug transition focus-visible:outline-2 focus-visible:outline-sky sm:text-lg ${picked === k ? "neu-in" : "neu-sm enabled:hover:-translate-y-0.5"}`}
+                        style={{ color: colors[i] }}
+                      >
+                        <span className="block">{META[k].q}</span>
+                        <span className="mt-2 block">
+                          <StatusBadge module={k} analysis={analysis} />
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="mt-3 px-1" aria-busy={busy}>
+                <label htmlFor="upload" className="mb-2 block text-sm font-semibold text-ink">
+                  Upload your dataset
+                </label>
+                <input
+                  id="upload"
+                  type="file"
+                  accept=".csv,.xlsx"
+                  disabled={busy}
+                  aria-describedby="upload-help upload-msg"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void analyzeFile(file);
+                    e.target.value = "";
+                  }}
+                  className="neu-in block min-h-11 min-w-0 w-full rounded-xl p-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-ink file:px-3 file:py-2 file:text-white"
+                />
+                <p id="upload-help" className="mt-2 text-xs text-slate-600">
+                  CSV (UTF-8) or XLSX first sheet. Up to 5 MB, 20,000 rows, 50 columns. No account
+                  connection required.
+                </p>
+                <p id="upload-msg" className="mt-2 text-sm text-wine" role="alert">
+                  {err}
+                </p>
+                {busy && (
+                  <p role="status" className="mt-2 text-sm font-semibold text-ink">
+                    {loadingMessage}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void loadDemo()}
+                  className="neu-sm mt-3 min-h-11 w-full rounded-xl text-sm font-semibold text-ink"
+                >
+                  Try synthetic demo data
+                </button>
+                <div className="mt-3 flex flex-wrap gap-4 text-xs">
+                  <a href="/demo/speculara-synthetic.csv" download className="text-ink underline">
+                    Demo CSV
+                  </a>
+                  <a href="/demo/speculara-synthetic.xlsx" download className="text-ink underline">
+                    Demo XLSX
+                  </a>
+                  <a
+                    href="/demo/speculara-text-synthetic.csv"
+                    download
+                    className="text-ink underline"
+                  >
+                    Text-only demo
+                  </a>
+                </div>
+                <p className="mt-2 text-xs text-slate-600">
+                  Demo records are fictional, not real campaign results. Uploads are processed in
+                  server memory and never saved.
+                </p>
+              </div>
+              {locked && (
+                <p className="mt-2 px-2 text-center text-xs text-slate-600">
+                  Upload data or try the synthetic demo to unlock modules.
+                </p>
+              )}
+            </div>
+          </section>
+
+          {analysis && (
+            <section
+              key={`summary-${revision}-${viewRevision}`}
+              className="neu result-arrive mb-6 rounded-3xl p-5"
+              aria-label="Dataset summary"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="break-words font-semibold text-ink">
+                    {source?.demo ? "Synthetic demo: fictional records" : "Uploaded dataset"}:{" "}
+                    {source?.label}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-700">
+                    {analysis.rows.toLocaleString()} rows; {analysis.metrics.length} numeric
+                    metrics. All six modules use this analysis.
+                  </p>
+                  {updatedAt !== null && <UpdatedAt at={updatedAt} />}
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    className="neu-btn min-h-11 rounded-xl px-4 text-sm text-white"
+                    onClick={() => exportResults("report")}
+                  >
+                    Download report
+                  </button>
+                  <button
+                    className="neu-sm min-h-11 rounded-xl px-4 text-sm text-ink"
+                    onClick={() => exportResults("json")}
+                  >
+                    Results JSON
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={resetView}
+                    className="neu-sm min-h-11 rounded-xl px-4 text-sm text-ink"
+                  >
+                    Reset view
+                  </button>
+                  <button
+                    className="neu-sm min-h-11 rounded-xl px-4 text-sm text-wine"
+                    disabled={busy}
+                    onClick={() => {
+                      setAnalysis(null);
+                      setSource(null);
+                      setUpdatedAt(null);
+                      setNotice("");
+                      setPicked(null);
+                      setTab(null);
+                      setNudge(false);
+                      setRevision((v) => v + 1);
+                    }}
+                  >
+                    Clear data
+                  </button>
+                </div>
+              </div>
+              <p role="status" className="mt-3 text-sm text-ink">
+                {notice}
+              </p>
+              <details className="mt-4 text-base leading-7">
+                <summary className="font-semibold text-ink">About this data</summary>
+                <ul className="mt-3 list-disc space-y-3 pl-5 text-slate-700">
+                  {source?.demo && <li>This demo uses made-up records.</li>}
+                  <li>Results come from this file, not a connected social account.</li>
+                  {Object.values(analysis.missing).some((n) => n > 0) && (
+                    <li>Some counts are missing. They are left out, not counted as zero.</li>
+                  )}
+                  {analysis.warnings.some((w) => w.includes("missing/invalid dates")) && (
+                    <li>
+                      Some dates are missing or unreadable. Time comparisons may be unavailable.
+                    </li>
+                  )}
+                  {analysis.warnings.some((w) => w.includes("chart limited")) && (
+                    <li>Some chart groups are hidden. Totals still include all entries.</li>
+                  )}
+                  <li>
+                    {analysis.warnings.some((w) => w.includes("exact duplicate"))
+                      ? "Some entries repeat. Check they were not counted twice."
+                      : "Check that each entry is counted only once."}
+                  </li>
+                  <li>Patterns are clues, not proof of what caused a change.</li>
+                  <li>Forecasts are estimates. Comment labels can miss context.</li>
+                </ul>
+                <p className="mt-4 text-slate-700">
+                  Download the report for full methods and data checks.
+                </p>
+              </details>
+            </section>
+          )}
+          <div id="result" tabIndex={-1} className="scroll-mt-24">
+            {Primary ? (
+              <>
+                <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 className="font-display text-2xl font-bold text-ink sm:text-3xl">
+                    {META[picked!].title}
+                  </h2>
+                  <span className="text-xs text-slate-600">Source: {source?.label}</span>
+                </div>
+                <div className="result-arrive">
+                  <Primary key={`primary-${revision}-${viewRevision}-${picked}`} />
+                </div>
+                <div className="mt-10">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-600">
+                    Explore the others
+                  </p>
+                  <div
+                    className="no-bar mb-3 flex gap-3 overflow-x-auto p-2"
+                    role="group"
+                    aria-label="Analysis options"
+                  >
+                    {others.map((k) => (
+                      <button
+                        key={k}
+                        aria-pressed={k === active}
+                        onClick={() => setTab(k)}
+                        className={`min-h-11 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-sky ${k === active ? "neu-in font-semibold text-ink selection-pop" : "neu-sm text-slate-600 hover:text-ink"}`}
+                      >
+                        {META[k].tab}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="result-arrive">
+                    <Secondary key={`secondary-${revision}-${viewRevision}-${active}`} />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="neu-in rounded-3xl p-8 text-center text-slate-600">
+                {locked
+                  ? "Your results appear here after uploading a dataset or loading the synthetic demo."
+                  : "Choose a question above to see your first result here."}
+              </div>
+            )}
+          </div>
+
+          <section className="mt-14">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-600">
+              Built for
+            </p>
+            <ul className="flex flex-wrap gap-3">
+              {MARKETS.map((m) => (
+                <li key={m} className="neu-sm rounded-full px-4 py-2 text-sm font-medium text-ink">
+                  {m}
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <footer
+            id="docs"
+            className="neu mt-10 scroll-mt-24 rounded-3xl p-5 text-sm text-slate-700 sm:p-6"
+          >
+            <p className="font-semibold text-ink">About your results</p>
+            <p className="mt-1">
+              Your uploaded data powers these findings. Open “See the numbers” for the evidence
+              behind each result.
+            </p>
+            <details className="mt-3">
+              <summary>Data guide</summary>
+              <p className="mt-2">
+                Use one row per observation. Supported columns: date, post_id, category, region,
+                views, likes, saves, comments, sales, text. Counts must be nonnegative; blanks mean
+                unknown. Avoid repeating whole-post totals for every comment. No social account is
+                connected.
+              </p>
+            </details>
+          </footer>
+        </main>
+        <Chat key={revision} />
+      </div>
+    </Results.Provider>
+  );
+}

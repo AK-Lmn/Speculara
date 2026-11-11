@@ -1,0 +1,2 @@
+# Reproduce the tested dependency set on deployment. No database or ML framework required.
+-r requirements-lock.txt
