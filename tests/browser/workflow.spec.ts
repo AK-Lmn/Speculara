@@ -67,6 +67,9 @@ test("real CSV workflow, six modules, chat and report export", async ({ page }) 
   for (const text of [
     "SYNTHETIC DEMO",
     "Full computed results",
+    "Decision brief",
+    "Independent counts",
+    "How to measure",
     "Pearson",
     "Ratios",
     "Period comparisons",
@@ -79,6 +82,9 @@ test("real CSV workflow, six modules, chat and report export", async ({ page }) 
 test("XLSX upload, text-only replacement, errors and clear", async ({ page }) => {
   await page.goto("/");
   await page.locator("#upload").setInputFiles(demo("speculara-synthetic.xlsx"));
+  await page
+    .getByRole("button", { name: "Use this dataset", exact: true })
+    .click({ timeout: 30000 });
   await expect(summary(page)).toContainText("Synthetic demo: fictional records", {
     timeout: 30000,
   });
@@ -98,6 +104,9 @@ test("XLSX upload, text-only replacement, errors and clear", async ({ page }) =>
   await expect(page.getByRole("alert")).toContainText("nonnegative");
   await expect(summary(page)).toContainText("42 rows");
   await page.locator("#upload").setInputFiles(demo("speculara-text-synthetic.csv"));
+  await page
+    .getByRole("button", { name: "Use this dataset", exact: true })
+    .click({ timeout: 30000 });
   await expect(summary(page)).toContainText("6 rows; 0 numeric metrics");
   await choose(page, "What do you want to get sentiment of?");
   const sentiment = page.getByRole("region", { name: "Sentiment results" });
@@ -152,6 +161,9 @@ test("320px layout tolerates large counts and API failure retains dataset", asyn
       "date,views,sales\n2026-01-01,1000000000000,1000000000000\n2026-01-02,1000000000000,1000000000000\n",
     ),
   });
+  await page
+    .getByRole("button", { name: "Use this dataset", exact: true })
+    .click({ timeout: 30000 });
   await expect(summary(page)).toContainText("2 rows", { timeout: 30000 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.route("**/api/analyze", (route) => route.abort());
@@ -169,6 +181,9 @@ test("duplicate numeric post IDs keep evidence available in details", async ({ p
     mimeType: "text/csv",
     buffer: Buffer.from("post_id,views,sales\na,100,2\na,200,3\n"),
   });
+  await page
+    .getByRole("button", { name: "Use this dataset", exact: true })
+    .click({ timeout: 30000 });
   await expect(summary(page)).toContainText("2 rows", { timeout: 30000 });
   await choose(page, "What do you want to get charts of?");
   const charts = page.getByRole("region", { name: "Charts results" });

@@ -21,7 +21,7 @@ Keep the backend running. In another terminal, use the existing Vite server if a
 npm run dev
 ```
 
-Open http://localhost:8443. Vite proxies `/api` to port 8000. Upload CSV/XLSX or choose **Try synthetic demo data**. No API keys, database, social login or LLM are required.
+Open http://localhost:8443. Vite proxies `/api` to port 8000. Upload CSV/XLSX, review detected columns and module availability, then choose **Use this dataset**. Cancel keeps existing results. **Try synthetic demo data** opens clearly labeled fictional records immediately. No API keys, database, social login or LLM are required.
 
 ## Data contract
 
@@ -33,6 +33,7 @@ Use one row per observation. Supported optional columns:
 | --- | --- |
 | date | ISO date, recommended `YYYY-MM-DD`; dates aggregate in UTC |
 | post_id | Observation/post identifier |
+| post_url | Optional supplied HTTP(S) post link; never fetched or treated as a connected account |
 | category, region | Group labels |
 | views, likes, saves, comments, sales | Finite nonnegative counts; blanks mean unknown |
 | text | Individual comment/review, used for heuristic sentiment and inquiry signals |
@@ -79,7 +80,7 @@ Configuration is supplied; nothing is deployed automatically.
 4. Check backend health and browser CORS preflight. Upload both demo formats, inspect all modules, ask chat and download a report. Verify a malformed file fails clearly.
 5. Free Render services can sleep. Warm the health endpoint before presenting. The UI times out after 60 seconds and permits retry.
 
-Do not ship the frontend without a working production API URL. The local Vite proxy does not exist in the production static bundle. Uploaded bodies are parsed only in server memory; no application disk persistence, raw-row response, server-side history or external AI calls. Hosting platform access logs still exist. This MVP has no authentication or distributed rate limiting and is intended for a bounded hackathon demonstration.
+Do not ship the frontend without a working production API URL. The local Vite proxy does not exist in the production static bundle. Uploaded bodies are parsed only in server memory; there is no application disk persistence, server-side history or external AI call. The response includes up to five bounded sample rows for browser preview. Hosting platform access logs still exist. This MVP has no authentication or distributed rate limiting and is intended for a bounded hackathon demonstration.
 
 See `docs/architecture.md`, `docs/mvp-scope.md`, `docs/team-workflow.md`, and `docs/demo-script.md`.
 

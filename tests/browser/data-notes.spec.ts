@@ -14,15 +14,33 @@ test("dataset notes are readable and full methods stay in report", async ({ page
   const notes = summary.locator("details");
   await expect(notes).toHaveCSS("font-size", "16px");
   expect((await notes.innerText()).length).toBeLessThan(700);
-  await summary.screenshot({path:"docs/screenshots/data-notes.png"});
+  await summary.screenshot({ path: "docs/screenshots/data-notes.png" });
 });
 
-test('file-specific issues remain visible in simple language',async({page})=>{
-  await page.goto('/');
-  await page.locator('#upload').setInputFiles({name:'checks.csv',mimeType:'text/csv',buffer:Buffer.from('date,views,sales\nbad,100,2\n2026-01-01,,3\n2026-01-02,200,4\n2026-01-02,200,4\n')});
-  const summary=page.getByRole('region',{name:'Dataset summary'});await expect(summary).toContainText('4 rows',{timeout:30000});
-  await summary.getByText('About this data',{exact:true}).click();
-  await expect(summary.getByText('Some counts are missing. They are left out, not counted as zero.')).toBeVisible();
-  await expect(summary.getByText('Some dates are missing or unreadable. Time comparisons may be unavailable.')).toBeVisible();
-  await expect(summary.getByText('Some entries repeat. Check they were not counted twice.')).toBeVisible();
+test("file-specific issues remain visible in simple language", async ({ page }) => {
+  await page.goto("/");
+  await page
+    .locator("#upload")
+    .setInputFiles({
+      name: "checks.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(
+        "date,views,sales\nbad,100,2\n2026-01-01,,3\n2026-01-02,200,4\n2026-01-02,200,4\n",
+      ),
+    });
+  await page
+    .getByRole("button", { name: "Use this dataset", exact: true })
+    .click({ timeout: 30000 });
+  const summary = page.getByRole("region", { name: "Dataset summary" });
+  await expect(summary).toContainText("4 rows", { timeout: 30000 });
+  await summary.getByText("About this data", { exact: true }).click();
+  await expect(
+    summary.getByText("Some counts are missing. They are left out, not counted as zero."),
+  ).toBeVisible();
+  await expect(
+    summary.getByText("Some dates are missing or unreadable. Time comparisons may be unavailable."),
+  ).toBeVisible();
+  await expect(
+    summary.getByText("Some entries repeat. Check they were not counted twice."),
+  ).toBeVisible();
 });

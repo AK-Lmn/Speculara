@@ -50,9 +50,99 @@ export function rankingText(group: string, key: string, r: Ranking) {
 
 export type Metric = "views" | "likes" | "saves" | "comments" | "sales";
 
-export type Recommendation = { title: string; evidence: string; action: string; details?: string };
+export type Recommendation = {
+  title: string;
+  evidence: string;
+  action: string;
+  details?: string;
+  success_metric?: string;
+  post_id?: string;
+  post_url?: string;
+};
+export type DecisionBrief = { changed: string; matters: string; try_next: string; measure: string };
+export type FunnelStage = {
+  key: "views" | "saves" | "questions" | "sales";
+  label: string;
+  value: number | null;
+  note: string;
+};
+export const FUNNEL_NOTE =
+  "These are independent counts, not a tracked customer journey. They do not show conversion or drop-off.";
+export function safePostUrl(value?: string | null): string | null {
+  if (!value || !/^https?:\/\/[^/]/i.test(value) || /[\s\\\x00-\x1f]/.test(value)) return null;
+  if (/^https?:\/\/[^/?#]*@/i.test(value)) return null;
+  try {
+    const url = new URL(value);
+    return /^(https?:)$/.test(url.protocol) && url.hostname && !url.username && !url.password
+      ? url.href
+      : null;
+  } catch {
+    return null;
+  }
+}
+export function decisionBrief(a: Analysis): DecisionBrief {
+  if (a.decision_brief) return a.decision_brief;
+  const metric = (["sales", "views", "saves", "likes", "comments"] as const).find(
+    (m) => a.periods?.[m]?.available,
+  );
+  return {
+    changed: metric
+      ? periodSummary(metric, a.periods[metric]!)
+      : `${
+          Object.entries(a.totals)
+            .map(([k, v]) => `${count(v)} ${k}`)
+            .join(", ") || "No numeric totals supplied"
+        }. Weekly change needs dated complete data.`,
+    matters: "Observed counts help choose what to review; they do not explain causes.",
+    try_next: a.recommend[0]?.action ?? "Add complete dated counts before choosing a test.",
+    measure:
+      a.recommend[0]?.success_metric ??
+      "Compare the chosen count before and after one change, with comparable exposure and time windows. No uplift is promised.",
+  };
+}
+export function funnelStages(a: Analysis): FunnelStage[] {
+  return (
+    a.funnel?.stages ??
+    (["views", "saves", "questions", "sales"] as const).map((key) => ({
+      key,
+      label: calculationLabel(key),
+      value: key === "questions" ? (a.demand.inquiries ?? null) : (a.totals[key] ?? null),
+      note:
+        key === "questions"
+          ? "Text rows with question signals, not numeric comments or unique people."
+          : "Observed count; missing values are excluded.",
+    }))
+  );
+}
+function briefText(a: Analysis) {
+  const b = decisionBrief(a);
+  return `What changed: ${b.changed}\nWhy it matters: ${b.matters}\nTry next: ${b.try_next}\nHow to measure: ${b.measure}`;
+}
+function funnelText(a: Analysis) {
+  return `${funnelStages(a)
+    .map((s) => `${s.label}: ${s.value == null ? "Not supplied" : count(s.value)}. ${s.note}`)
+    .join("\n")}\n${FUNNEL_NOTE}${a.funnel?.note ? ` ${a.funnel.note}` : ""}`;
+}
+function experimentText(r: Recommendation) {
+  const url = safePostUrl(r.post_url);
+  return `${r.title}. Evidence: ${r.evidence} Test: ${r.action} How to measure: ${experimentMetric(r)}${r.post_id ? ` Post ID: ${r.post_id}.` : ""}${url ? ` Post: ${url}` : ""}`;
+}
+export function experimentMetric(r: Recommendation) {
+  return (
+    r.success_metric ??
+    "Compare the relevant count across comparable exposure and time windows. Change one thing at a time; no uplift is promised."
+  );
+}
 
 export type Analysis = {
+  decision_brief?: DecisionBrief;
+  funnel?: { stages: FunnelStage[]; note: string };
+  preview?: {
+    columns: string[];
+    rows: Record<string, string | number | null>[];
+    total_rows: number;
+  };
+  post_references?: { post_id: string | null; post_url: string | null }[];
   schema_version: 2;
 
   ratios: Record<string, Ratio>;
@@ -295,6 +385,12 @@ export function answer(question: string, a: Analysis): string {
     )
   )
     return technicalAnswer(question, a);
+  if (/decision brief|\bbrief\b|what it means|why.*matter/.test(q)) return briefText(a);
+  if (/funnel|independent count|customer journey|drop.off/.test(q)) return funnelText(a);
+  if (/measur|success metric|experiment/.test(q))
+    return /more|all|another|three|\b3\b/.test(q)
+      ? a.recommend.slice(0, 3).map(experimentText).join("\n\n") || decisionBrief(a).measure
+      : decisionBrief(a).measure;
   if (/negative|correl|relat|link/.test(q) && !/comment|review|sentiment|feedback/.test(q)) {
     const negative = a.correlation.find((p) => p.r < 0);
     const pair = /negative/.test(q) ? (negative ?? a.correlation[0]) : a.correlation[0];
@@ -312,7 +408,7 @@ export function answer(question: string, a: Analysis): string {
     return (
       a.recommend
         .slice(0, /more|all|another|three|3/.test(q) ? 3 : 1)
-        .map((r) => `${r.title}. ${r.evidence} ${r.action}`)
+        .map(experimentText)
         .join("\n\n") || friendlyUnavailable("recommendation")
     );
   if (/growth|period|week|change|increase|decrease/.test(q)) {
@@ -323,18 +419,21 @@ export function answer(question: string, a: Analysis): string {
   }
   if (/rank|best.post|best.category|top.post|top.category/.test(q)) {
     const group = /category/.test(q) ? a.rankings.categories : a.rankings.posts;
-    const requested = (["sales", "saves", "likes", "comments"] as const).find(m => q.includes(m));
+    const requested = (["sales", "saves", "likes", "comments"] as const).find((m) => q.includes(m));
     const metric = requested ?? "sales";
-    const ranking = group[`${metric}_per_view`] ?? (requested ? undefined : Object.values(group)[0]);
+    const ranking =
+      group[`${metric}_per_view`] ?? (requested ? undefined : Object.values(group)[0]);
     const top = ranking?.rows[0];
     return top
       ? `${top.label} leads this comparison: ${count(top.numerator)} ${metric} alongside ${count(top.views)} views. Test similar content with a comparable audience.`
       : friendlyUnavailable("ranking", ranking?.reason ?? undefined);
   }
   if (/ratio|\brate\b|conversion|per.view/.test(q)) {
-    const requested = (["sales", "saves", "likes", "comments"] as const).find(m => q.includes(m));
+    const requested = (["sales", "saves", "likes", "comments"] as const).find((m) => q.includes(m));
     const metric = requested ?? "sales";
-    const r = a.ratios[`${metric}_per_view`] ?? (requested ? undefined : Object.values(a.ratios).find(r => r.available));
+    const r =
+      a.ratios[`${metric}_per_view`] ??
+      (requested ? undefined : Object.values(a.ratios).find((r) => r.available));
     return r?.available
       ? `${count(r.numerator)} ${r.numerator_metric} were recorded alongside ${count(r.denominator)} views (${count(r.percent)}%). Review the offer and test one change.`
       : friendlyUnavailable("ratio");
@@ -373,7 +472,7 @@ export function answer(question: string, a: Analysis): string {
   return (
     a.recommend
       .slice(0, /more|all|another|three|3/.test(q) ? 3 : 1)
-      .map((r) => `${r.title}. ${r.evidence} ${r.action}`)
+      .map(experimentText)
       .join("\n\n") || friendlyUnavailable("recommendation")
   );
 }
@@ -393,5 +492,5 @@ export function download(name: string, content: string, type = "text/markdown;ch
 }
 
 export function analysisReport(a: Analysis, source: string) {
-  return `# Speculara analysis report\n\nSource: ${source}\nGenerated: ${new Date().toISOString()}\n\n${answer("summary", a)}\n\n## Recommended decisions\n\n${answer("recommend", a)}\n\n## Ratios\n\n${technicalAnswer("ratio", a)}\n\n## Period comparisons\n\n${technicalAnswer("growth", a)}\n\n## Rankings\n\n${technicalAnswer("rank", a)}\n\n## Forecast\n\n${technicalAnswer("forecast", a)}\n\n## Correlation\n\n${technicalAnswer("correlation", a)}\n\n## Sentiment\n\n${technicalAnswer("sentiment", a)}\n\n## Demand\n\n${technicalAnswer("demand", a)}\n\n## Data quality and limitations\n\n${LIMITS}\n\n${a.warnings.map((w) => `- ${w}`).join("\n")}\n\n## Full computed results\n\n\`\`\`json\n${JSON.stringify(a, null, 2)}\n\`\`\`\n`;
+  return `# Speculara analysis report\n\nSource: ${source}\nGenerated: ${new Date().toISOString()}\n\n## Decision brief\n\n${briefText(a)}\n\n## Independent counts\n\n${funnelText(a)}\n\n## Experiments\n\n${a.recommend.map(experimentText).join("\n\n")}\n\n## Ratios\n\n${technicalAnswer("ratio", a)}\n\n## Period comparisons\n\n${technicalAnswer("growth", a)}\n\n## Rankings\n\n${technicalAnswer("rank", a)}\n\n## Forecast\n\n${technicalAnswer("forecast", a)}\n\n## Correlation\n\n${technicalAnswer("correlation", a)}\n\n## Sentiment\n\n${technicalAnswer("sentiment", a)}\n\n## Demand\n\n${technicalAnswer("demand", a)}\n\n## Data quality and limitations\n\n${LIMITS}\n\n${a.warnings.map((w) => `- ${w}`).join("\n")}\n\n## Full computed results\n\n\`\`\`json\n${JSON.stringify(a, null, 2)}\n\`\`\`\n`;
 }

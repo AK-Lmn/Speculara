@@ -7,6 +7,9 @@ test("polish stays honest, findings copy, and reset keeps the data", async ({ pa
   await expect(summary).toContainText("42 rows", { timeout: 30000 });
   await expect(summary.getByText("Updated just now", { exact: true })).toBeVisible();
   await expect(summary).toContainText("Synthetic demo: fictional records");
+  await expect(page.getByLabel("Recommend status: Ready").first()).toHaveText("Ready");
+  await expect(page.getByLabel("Predict status: Early finding").first()).toHaveText("Early finding");
+  await expect(page.getByLabel("Sentiment status: Needs more data").first()).toHaveText("Needs more data");
   const recommendations = page.getByRole("region", { name: "Recommendations results" });
   await expect(recommendations.getByText("Start here", { exact: true })).toBeVisible();
   await recommendations
@@ -24,7 +27,7 @@ test("polish stays honest, findings copy, and reset keeps the data", async ({ pa
   ).toBeVisible();
   await page.getByRole("button", { name: "What do you want to get sentiment of?" }).click();
   const sentiment = page.getByRole("region", { name: "Sentiment results" });
-  await expect(sentiment.getByText("Needs data", { exact: true })).toBeVisible();
+  await expect(sentiment.getByText("Needs more data", { exact: true })).toBeVisible();
   await expect(
     sentiment.getByText("Add a text column with individual comments or reviews."),
   ).toBeVisible();
@@ -61,7 +64,7 @@ test("loading states describe actual waits and failed uploads preserve freshness
   await page
     .locator("#upload")
     .setInputFiles({ name: "bad.csv", mimeType: "text/csv", buffer: Buffer.from("other\n1\n") });
-  await expect(page.getByText("Sending your file for analysis...", { exact: true })).toBeVisible();
+  await expect(page.getByText("Checking your file...", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Reset view", exact: true })).toBeDisabled();
   await expect(
     page.getByText(

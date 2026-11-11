@@ -62,3 +62,7 @@ Forecasts require 14–365 consecutive complete UTC daily dates, no invalid date
 Sentiment is unchanged: small English/Filipino lexicon, negation treated neutral; unsupported sarcasm, context and validated multilingual NLP. Counts/keywords are heuristic observations; question/request rows may overlap and are not unique buyers. No raw representative comments or new NLP dependency.
 
 Six modules, deterministic chat and full Markdown/JSON exports share computed results. Specific growth, rate and ranking intents precede generic forecast/trend/next/sales routing. Text-only uploads show explicit unavailable numeric sections. Processing stays stateless and in memory; upload limits remain 5 MB, 20,000 rows, 50 columns and 30 MB expanded XLSX. Production hardening and NLP evaluation remain deferred.
+
+## Decision workflow additions
+
+Schema 2 now has optional decision_brief, funnel, preview and post_references fields. Existing calculations remain unchanged. Structured experiment_kind and optional reference fields keep measurement guidance independent of presentation titles. Backend decisions.py enriches the calculated result; the frontend and both report/chat helpers consume the same fields. Upload previews stage one in-memory API result until confirmation, avoiding duplicate upload processing. Details: docs/decision-workflow.md.

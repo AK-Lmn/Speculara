@@ -3,7 +3,7 @@ import { demandSummary, relationshipSummary } from "./analysis.ts";
 
 export type ModuleKey = "predict" | "recommend" | "charts" | "correlation" | "sentiment" | "demand";
 type ModuleInfo = {
-  status: "Waiting for data" | "Needs data" | "Ready" | "Estimate" | "Early finding" | "Word check";
+  status: "Needs more data" | "Ready" | "Early finding";
   finding: string;
   why: string;
   needed?: string;
@@ -30,13 +30,13 @@ const hints: Record<ModuleKey, string> = {
 export function moduleInfo(key: ModuleKey, a: Analysis | null): ModuleInfo {
   if (!a)
     return {
-      status: "Waiting for data",
+      status: "Needs more data",
       finding: "Upload a file or try the clearly labeled synthetic demo.",
       why: hints[key],
       needed: instructions[key],
     };
   const missing: ModuleInfo = {
-    status: "Needs data",
+    status: "Needs more data",
     finding: instructions[key],
     why: hints[key],
     needed: instructions[key],
@@ -45,13 +45,15 @@ export function moduleInfo(key: ModuleKey, a: Analysis | null): ModuleInfo {
     case "predict":
       return a.predict.available
         ? {
-            status: "Estimate",
+            status: "Early finding",
             finding: `${format(a.predict.points[0].value)} ${a.predict.metric} estimated for ${a.predict.points[0].label}.`,
             why: hints[key],
           }
         : missing;
     case "recommend":
-      return a.recommend.length
+      return a.recommend.some(
+        (r) => !/^Add more useful data$/i.test(r.title) && !!r.evidence && !!r.action,
+      )
         ? { status: "Ready", finding: `Start with: ${a.recommend[0].title}.`, why: hints[key] }
         : missing;
     case "charts": {
@@ -80,7 +82,7 @@ export function moduleInfo(key: ModuleKey, a: Analysis | null): ModuleInfo {
       const top = Object.entries(s.counts ?? {}).sort((a, b) => b[1] - a[1])[0];
       return s.available && top
         ? {
-            status: "Word check",
+            status: "Early finding",
             finding: `${format(top[1])} text entries were labeled ${top[0]} by the simple word check.`,
             why: hints[key],
           }

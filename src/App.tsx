@@ -9,18 +9,25 @@ import {
   relationshipSummary,
   friendlyUnavailable,
   calculationLabel,
+  decisionBrief,
+  funnelStages,
+  safePostUrl,
+  FUNNEL_NOTE,
+  experimentMetric,
   type Analysis,
   type Metric,
 } from "./analysis";
+
+import { chartTicks } from "./chart-presentation";
 
 import { moduleInfo, updatedLabel, priorityLabel, type ModuleKey } from "./polish";
 
 type Key = ModuleKey;
 
-const INK = "#29348f",
-  SKY = "#38bdf8",
-  CREAM = "#f9f5f1",
-  WINE = "#8f2934";
+const INK = "var(--color-ink)",
+  SKY = "var(--color-sky)",
+  CREAM = "var(--color-cream)",
+  WINE = "var(--color-wine)";
 
 const META: Record<Key, { q: string; title: string; tab: string }> = {
   predict: { q: "What do you want to Predict?", title: "Prediction", tab: "Predict" },
@@ -94,7 +101,9 @@ function ModuleBrief({ module }: { module: Key }) {
           {copying ? "Copying..." : "Copy finding"}
         </button>
         <details className="min-w-0 text-sm">
-          <summary className="font-semibold text-ink">Why this matters</summary>
+          <summary className="min-h-[var(--size-target)] content-center rounded-lg py-2 font-semibold text-ink">
+            Why this matters
+          </summary>
           <p className="max-w-prose pb-2 text-slate-700">{info.why}</p>
         </details>
       </div>
@@ -138,7 +147,7 @@ function Logo({ size = 36 }: { size?: number }) {
         />
       ))}
       <circle r="9" fill={CREAM} stroke={INK} strokeWidth="2" />
-      <circle cx="-14" cy="-26" r="3" fill="#fff" opacity=".7" />
+      <circle cx="-14" cy="-26" r="3" fill="var(--color-surface-highlight)" opacity=".7" />
     </svg>
   );
 }
@@ -161,7 +170,9 @@ function Card({
 function Numbers({ children }: { children: ReactNode }) {
   return (
     <details className="mt-4 text-sm">
-      <summary className="font-semibold text-ink">See the numbers</summary>
+      <summary className="min-h-[var(--size-target)] content-center rounded-lg py-2 font-semibold text-ink">
+        See the numbers
+      </summary>
       <div className="mt-3 space-y-3 text-slate-700">{children}</div>
     </details>
   );
@@ -186,17 +197,13 @@ function Pills<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div
-      className="no-bar -mx-1 flex gap-3 overflow-x-auto p-2"
-      role="group"
-      aria-label="Analysis options"
-    >
+    <div className="-mx-1 flex flex-wrap gap-3 p-2" role="group" aria-label="Analysis options">
       {items.map((i) => (
         <button
           key={i}
           aria-pressed={i === value}
           onClick={() => onChange(i)}
-          className={`min-h-10 whitespace-nowrap rounded-full px-4 py-2 text-sm transition focus-visible:outline-2 focus-visible:outline-sky ${i === value ? "neu-in font-semibold text-ink" : "neu-sm text-slate-600 hover:text-ink"}`}
+          className={`min-h-[var(--size-target)] min-w-[var(--size-target)] max-w-full rounded-full px-4 py-2 text-sm transition focus-visible:outline-2 focus-visible:outline-sky ${i === value ? "neu-in font-semibold text-ink" : "neu-sm text-slate-600 hover:text-ink"}`}
         >
           {i === "post_id" ? "Post" : calculationLabel(i)}
         </button>
@@ -229,7 +236,7 @@ function Query({
       <input
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        className="min-h-10 min-w-0 flex-1 bg-transparent px-2 text-sm outline-none"
+        className="min-h-[var(--size-target)] min-w-0 flex-1 bg-transparent px-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
       />
       <button className="neu-btn min-h-11 rounded-xl px-5 py-2.5 text-sm font-medium text-white">
         {cta}
@@ -295,6 +302,7 @@ function BarChart({
   fmt,
   avg,
   label,
+  dateLabels = false,
 }: {
   values: number[];
   labels: string[];
@@ -302,35 +310,49 @@ function BarChart({
   fmt: (v: number) => string;
   avg?: boolean;
   label: string;
+  dateLabels?: boolean;
 }) {
+  const plot = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    if (plot.current) observer.observe(plot.current);
+    return () => observer.disconnect();
+  }, []);
+  const ticks = chartTicks(labels, dateLabels, width);
   const top = Math.max(...values),
     mean = values.reduce((a, b) => a + b, 0) / values.length;
   const many = values.length > 8;
   return (
-    <div role="img" aria-label={`${label}. Highest ${labels[values.indexOf(top)]}: ${fmt(top)}`}>
+    <div
+      role="img"
+      aria-label={`${label}. Highest ${labels[values.indexOf(top)]}: ${fmt(top)}. ${labels.map((l, i) => `${l}: ${values[i]}`).join("; ")}`}
+      style={{ fontSize: "var(--font-size-chart-label)" }}
+    >
       <div className="flex gap-2">
-        <div className="flex h-44 w-16 shrink-0 flex-col justify-between pb-0 text-right text-[10px] leading-none text-slate-600">
+        <div className="flex h-44 w-16 shrink-0 flex-col justify-between pb-0 text-right leading-none text-slate-600">
           {[1, 0.75, 0.5, 0.25, 0].map((t) => (
             <span key={t}>{fmt(max * t)}</span>
           ))}
         </div>
-        <div className="relative h-44 min-w-0 flex-1">
+        <div ref={plot} className="relative h-44 min-w-0 flex-1">
           {[0, 25, 50, 75, 100].map((t) => (
             <div
               key={t}
-              className="absolute inset-x-0 border-t border-slate-300/70"
-              style={{ bottom: `${t}%` }}
+              className="absolute inset-x-0 border-t"
+              style={{ bottom: `${t}%`, borderColor: "var(--color-chart-grid)" }}
             />
           ))}
           <div className="absolute inset-0 flex items-end gap-1.5 sm:gap-2.5">
             {values.map((v, i) => (
               <div
                 key={i}
-                title={`${labels[i]}: ${fmt(v)}`}
+                data-chart-bar
+                title={`${labels[i]}: ${v}`}
                 className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
               >
                 {(!many || v === top) && (
-                  <span className="mb-1 text-[10px] font-semibold text-ink">{fmt(v)}</span>
+                  <span className="mb-1 font-semibold text-ink">{fmt(v)}</span>
                 )}
                 <div
                   className="w-full rounded-t-lg transition-all duration-500"
@@ -338,9 +360,9 @@ function BarChart({
                     height: `${(v / max) * 100}%`,
                     background:
                       v === top
-                        ? `linear-gradient(180deg,#3544ad,${INK})`
-                        : `linear-gradient(180deg,${SKY},#2a9fd8)`,
-                    boxShadow: "2px 2px 5px rgba(41,52,143,.25)",
+                        ? `linear-gradient(180deg,var(--color-action-primary-start),var(--color-chart-primary))`
+                        : "var(--color-chart-secondary)",
+                    boxShadow: "var(--shadow-chart)",
                   }}
                 />
               </div>
@@ -351,7 +373,7 @@ function BarChart({
               className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed"
               style={{ bottom: `${(mean / max) * 100}%`, borderColor: WINE }}
             >
-              <span className="absolute -top-5 right-0 rounded bg-mist px-1 text-[10px] font-semibold text-wine">
+              <span className="absolute -top-5 right-0 rounded bg-mist px-1 font-semibold text-wine">
                 avg {fmt(mean)}
               </span>
             </div>
@@ -360,13 +382,25 @@ function BarChart({
       </div>
       <div className="mt-1.5 flex gap-2">
         <span className="w-16 shrink-0" />
-        <div className="flex min-w-0 flex-1 gap-1.5 sm:gap-2.5">
-          {labels.map((l, i) => (
+        <div className="relative h-6 min-w-0 flex-1">
+          {ticks.map(({ index, text }, tick) => (
             <span
-              key={i}
-              className="min-w-0 flex-1 truncate text-center text-[10px] text-slate-600"
+              key={index}
+              data-chart-tick
+              title={labels[index]}
+              className="absolute block truncate whitespace-nowrap text-slate-600"
+              style={{
+                left: `${ticks.length === 1 ? 0 : (tick / (ticks.length - 1)) * 100}%`,
+                transform:
+                  tick === 0
+                    ? undefined
+                    : tick === ticks.length - 1
+                      ? "translateX(-100%)"
+                      : "translateX(-50%)",
+                maxWidth: `${100 / ticks.length}%`,
+              }}
             >
-              {l}
+              {text}
             </span>
           ))}
         </div>
@@ -406,7 +440,8 @@ function Predict() {
             <H>Next seven days</H>
             <BarChart
               values={f.points.map((p) => p.value)}
-              labels={f.points.map((p) => p.label.slice(5))}
+              labels={f.points.map((p) => p.label)}
+              dateLabels
               max={Math.max(1, ...f.points.map((p) => p.value)) * 1.2}
               fmt={(v) =>
                 new Intl.NumberFormat(undefined, {
@@ -460,6 +495,74 @@ function Predict() {
     </Card>
   );
 }
+function DecisionOverview() {
+  const a = useAnalysis();
+  const brief = decisionBrief(a);
+  const references = (a.post_references ?? []).slice(0, 365).filter((r) => safePostUrl(r.post_url));
+  return (
+    <div className="mb-8 space-y-6">
+      <Card label="Decision brief">
+        <H sub="Start with the evidence, then choose one small test.">Your decision brief</H>
+        <dl className="grid gap-4 sm:grid-cols-2">
+          {[
+            ["What changed", brief.changed],
+            ["Why it matters", brief.matters],
+            ["Try next", brief.try_next],
+            ["How to measure", brief.measure],
+          ].map(([label, value]) => (
+            <div key={label} className="min-w-0 rounded-2xl neu-in p-4">
+              <dt className="font-semibold text-ink">{label}</dt>
+              <dd className="mt-2 break-words text-sm leading-6 text-slate-700">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </Card>
+      <Card label="Independent counts">
+        <H sub="Attention, interest, questions and purchases recorded in this file.">
+          Independent counts
+        </H>
+        <p className="mb-4 text-sm text-slate-700">{FUNNEL_NOTE}</p>
+        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {funnelStages(a).map((stage) => (
+            <div key={stage.key} className="min-w-0 rounded-2xl neu-in p-4">
+              <dt className="font-semibold text-ink">{stage.label}</dt>
+              <dd className="mt-2 break-words text-xl font-semibold text-ink">
+                {stage.value == null ? "Not supplied" : stage.value.toLocaleString()}
+              </dd>
+              <dd className="mt-2 text-sm text-slate-700">{stage.note}</dd>
+            </div>
+          ))}
+        </dl>
+        {a.funnel?.note && <p className="mt-4 text-sm text-slate-700">{a.funnel.note}</p>}
+        {references.length > 0 && (
+          <details className="mt-4 text-sm">
+            <summary className="min-h-[var(--size-target)] content-center rounded-lg py-2 font-semibold text-ink">
+              Post references
+            </summary>
+            <p className="text-slate-700">
+              Supplied links are references, not verified platform connections.
+            </p>
+            <ul className="mt-2 space-y-2">
+              {references.map((r, index) => (
+                <li key={index}>
+                  <a
+                    href={safePostUrl(r.post_url)!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-11 items-center break-all rounded-lg py-2 text-ink underline"
+                  >
+                    {r.post_id ? `Post ${r.post_id}` : `Supplied post link ${index + 1}`} (opens in
+                    new tab)
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </Card>
+    </div>
+  );
+}
 function RecommendationItem({
   item,
   index,
@@ -473,10 +576,28 @@ function RecommendationItem({
       <p className="font-display font-semibold text-ink">
         {index + 1}. {item.title}
       </p>
-      <p className="mt-2 text-sm text-slate-700">{item.evidence}</p>
       <p className="mt-2 text-sm text-slate-700">
-        <b>Try this:</b> {item.action}
+        <b>Evidence:</b> {item.evidence}
       </p>
+      <p className="mt-2 text-sm text-slate-700">
+        <b>Test:</b> {item.action}
+      </p>
+      <p className="mt-2 text-sm text-slate-700">
+        <b>How to measure:</b> {experimentMetric(item)}
+      </p>
+      {item.post_id && (
+        <p className="mt-2 break-all text-sm text-slate-700">Post ID: {item.post_id}</p>
+      )}
+      {safePostUrl(item.post_url) && (
+        <a
+          href={safePostUrl(item.post_url)!}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 inline-flex min-h-11 items-center rounded-lg py-2 text-sm text-ink underline"
+        >
+          View supplied post (opens in new tab)
+        </a>
+      )}
       {item.details && <Numbers>{item.details}</Numbers>}
     </li>
   );
@@ -495,7 +616,9 @@ function Recommend() {
       </ol>
       {a.recommend.length > 3 && (
         <details className="mt-4 text-sm">
-          <summary className="font-semibold text-ink">More ideas</summary>
+          <summary className="min-h-[var(--size-target)] content-center rounded-lg py-2 font-semibold text-ink">
+            More ideas
+          </summary>
           <ol start={4} className="mt-3 space-y-4">
             {a.recommend.slice(3).map((item, index) => (
               <RecommendationItem key={item.title} item={item} index={index + 3} />
@@ -638,6 +761,7 @@ function Charts() {
                   <BarChart
                     values={shown.map((r) => r[metric]!)}
                     labels={shown.map((r) => r.label)}
+                    dateLabels={group === "date"}
                     max={Math.max(1, ...shown.map((r) => r[metric]!)) * 1.2}
                     fmt={(v) =>
                       new Intl.NumberFormat(undefined, {
@@ -647,7 +771,7 @@ function Charts() {
                     }
                     label={`${metric} by ${group}`}
                   />
-                  <div className="mt-4 flex items-center justify-between gap-3">
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                     <button
                       className="neu-sm min-h-11 rounded-xl px-4"
                       disabled={page === 0}
@@ -667,7 +791,9 @@ function Charts() {
                     </button>
                   </div>
                   <details className="mt-4 text-sm">
-                    <summary>View exact chart data</summary>
+                    <summary className="min-h-[var(--size-target)] content-center rounded-lg py-2">
+                      View exact chart data
+                    </summary>
                     <div className="overflow-x-auto">
                       <table className="mt-2 w-full text-left">
                         <thead>
@@ -763,7 +889,9 @@ function Correlation() {
           <ul className="space-y-3">{pairs.slice(0, 3).map(renderPair)}</ul>
           {pairs.length > 3 && (
             <details className="mt-4 text-sm">
-              <summary className="font-semibold text-ink">More connections</summary>
+              <summary className="min-h-[var(--size-target)] content-center rounded-lg py-2 font-semibold text-ink">
+                More connections
+              </summary>
               <ul className="mt-3 space-y-3">{pairs.slice(3).map(renderPair)}</ul>
             </details>
           )}
@@ -915,9 +1043,28 @@ function Chat() {
       t: "Ask what changed, what it means, or what to try next. I use only the data you uploaded.",
     },
   ]);
-  const end = useRef<HTMLDivElement>(null);
+  const messages = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const launcher = useRef<HTMLButtonElement>(null);
+  const close = () => {
+    setOpen(false);
+    launcher.current?.focus({ preventScroll: true });
+  };
   useEffect(() => {
-    end.current?.scrollIntoView({ block: "end" });
+    if (!open) return;
+    input.current?.focus({ preventScroll: true });
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        launcher.current?.focus({ preventScroll: true });
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+  useEffect(() => {
+    if (messages.current) messages.current.scrollTop = messages.current.scrollHeight;
   }, [msgs, open]);
   const send = (t: string) => {
     if (!t.trim()) return;
@@ -929,13 +1076,21 @@ function Chat() {
   };
   const quickQuestions = analysis
     ? [
-        { label: "What changed?", question: "What changed this week?" },
-        { label: "Where are we losing buyers?", question: "Where are we losing buyers?" },
-        { label: "Which posts should I review?", question: "Which posts should I review?" },
-        { label: "Explain negative", question: "What does negative mean?" },
+        { label: "Decision brief", question: "Show my decision brief" },
+        ...(funnelStages(analysis).some((stage) => stage.value != null)
+          ? [{ label: "Independent counts", question: "Explain the funnel counts" }]
+          : []),
+        moduleInfo("recommend", analysis).status === "Ready"
+          ? { label: "Measure a test", question: "How do I measure success?" }
+          : { label: "Add needed data", question: "What should I do next?" },
+        ...(analysis.correlation.some((pair) => pair.r < 0)
+          ? [{ label: "Explain negative", question: "What does negative mean?" }]
+          : analysis.sentiment.available
+            ? [{ label: "Review feedback", question: "Summarize feedback" }]
+            : []),
       ]
     : [
-        { label: "What should I do next?", question: "What should I do next?" },
+        { label: "What next?", question: "What should I do next?" },
         { label: "Summarize totals", question: "Summarize totals" },
         { label: "Explain negative", question: "What does negative mean?" },
       ];
@@ -944,23 +1099,21 @@ function Chat() {
       {open && (
         <div
           role="dialog"
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setOpen(false);
-          }}
           aria-label="Ask about your analysis"
-          className="neu flex h-[min(30rem,calc(100dvh-6.5rem))] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl sm:w-96"
+          className="neu flex h-[min(30rem,calc(100dvh-6rem))] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl sm:w-96"
         >
-          <div className="flex shrink-0 items-center justify-between px-4 py-3">
+          <div className="flex shrink-0 items-center justify-between px-3">
             <p className="font-display font-bold text-ink">Ask Speculara</p>
             <button
-              onClick={() => setOpen(false)}
+              onClick={close}
               aria-label="Close chat"
-              className="neu-sm grid h-9 w-9 place-items-center rounded-full text-ink"
+              className="neu-sm grid h-11 w-11 place-items-center rounded-full text-ink"
             >
               &times;
             </button>
           </div>
           <div
+            ref={messages}
             className="neu-in neu-scroll mx-3 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain rounded-2xl p-3 text-sm"
             aria-live="polite"
           >
@@ -972,18 +1125,17 @@ function Chat() {
                 {m.t}
               </div>
             ))}
-            <div ref={end} />
           </div>
           <div
             role="group"
             aria-label="Suggested questions"
-            className="flex shrink-0 flex-wrap gap-2 px-3 pb-1 pt-3"
+            className="mx-3 mt-1 grid shrink-0 grid-cols-2 gap-2 [@media(min-width:600px)]:grid-cols-4"
           >
             {quickQuestions.map(({ label, question }) => (
               <button
                 key={question}
                 onClick={() => send(question)}
-                className="neu-sm min-h-9 max-w-full rounded-full px-3 py-2 text-left text-xs leading-snug text-ink"
+                className="neu-sm min-h-11 min-w-0 rounded-full px-2 py-2 text-left text-xs leading-snug text-ink"
               >
                 {label}
               </button>
@@ -994,21 +1146,23 @@ function Chat() {
               e.preventDefault();
               send(text);
             }}
-            className="flex shrink-0 gap-2 p-3"
+            className="flex shrink-0 gap-2 p-2"
           >
             <input
+              ref={input}
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Ask about your results"
               aria-label="Your question"
-              className="neu-in min-h-11 min-w-0 flex-1 rounded-xl bg-transparent px-3 text-sm outline-none"
+              className="neu-in min-h-11 min-w-0 flex-1 rounded-xl bg-transparent px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
             />
             <button className="neu-btn min-h-11 rounded-xl px-4 text-sm text-white">Send</button>
           </form>
         </div>
       )}
       <button
-        onClick={() => setOpen(!open)}
+        ref={launcher}
+        onClick={() => (open ? close() : setOpen(true))}
         aria-label={open ? "Close chat" : "Open chat"}
         aria-expanded={open}
         className="neu-btn grid h-14 w-14 place-items-center rounded-full text-white"
@@ -1053,7 +1207,25 @@ export default function App() {
   const [loadingMessage, setLoadingMessage] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const [revision, setRevision] = useState(0);
+  const requestId = useRef(0);
+  const [candidate, setCandidate] = useState<{ data: Analysis; label: string } | null>(null);
+  useEffect(() => {
+    if (candidate) document.getElementById("upload-preview-title")?.focus();
+  }, [candidate]);
+  const commitDataset = (data: Analysis, label: string, demo = false) => {
+    setAnalysis(data);
+    setUpdatedAt(Date.now());
+    setSource({ label, demo: demo || data.source_kind === "synthetic" });
+    setRevision((v) => v + 1);
+    setPicked("recommend");
+    setTab("charts");
+    setNudge(true);
+    setCandidate(null);
+    setTimeout(() => document.getElementById("dataset-summary")?.focus(), 0);
+  };
   const analyzeFile = async (file: File, demo = false) => {
+    const currentRequest = ++requestId.current;
+    setCandidate(null);
     setErr("");
     if (!/\.(csv|xlsx)$/i.test(file.name)) {
       setErr("Choose a CSV or XLSX file.");
@@ -1065,7 +1237,7 @@ export default function App() {
     }
     setBusy(true);
     setNotice("");
-    setLoadingMessage("Sending your file for analysis...");
+    setLoadingMessage("Checking your file...");
     const slowTimer = setTimeout(
       () =>
         setLoadingMessage(
@@ -1086,7 +1258,8 @@ export default function App() {
         body: file,
         signal: controller.signal,
       });
-      setLoadingMessage("Preparing your results...");
+      if (currentRequest !== requestId.current) return;
+      setLoadingMessage(demo ? "Preparing your results..." : "Preparing your preview...");
       const data = await response.json();
       if (!response.ok)
         throw new Error(
@@ -1094,14 +1267,11 @@ export default function App() {
         );
       if (data.schema_version !== 2)
         throw new Error("Unsupported analysis schema; version 2 required.");
-      setAnalysis(data);
-      setUpdatedAt(Date.now());
-      setSource({ label: file.name, demo: demo || data.source_kind === "synthetic" });
-      setRevision((v) => v + 1);
-      setPicked("recommend");
-      setTab("charts");
-      setNudge(true);
+      if (currentRequest !== requestId.current) return;
+      if (demo) commitDataset(data, file.name, true);
+      else setCandidate({ data, label: file.name });
     } catch (e) {
+      if (currentRequest !== requestId.current) return;
       setErr(
         e instanceof Error && e.name === "AbortError"
           ? "Analysis timed out. Render may be waking up; retry shortly."
@@ -1112,11 +1282,14 @@ export default function App() {
     } finally {
       clearTimeout(timer);
       clearTimeout(slowTimer);
-      setLoadingMessage("");
-      setBusy(false);
+      if (currentRequest === requestId.current) {
+        setLoadingMessage("");
+        setBusy(false);
+      }
     }
   };
   const loadDemo = async () => {
+    setCandidate(null);
     setBusy(true);
     setNotice("");
     setLoadingMessage("Opening the synthetic demo file...");
@@ -1205,7 +1378,7 @@ export default function App() {
 
             <div
               ref={listRef}
-              className={`neu rounded-[2rem] p-4 transition ${nudge ? "ring-2 ring-sky" : ""}`}
+              className={`neu min-w-0 rounded-[2rem] p-4 transition ${nudge ? "ring-2 ring-sky" : ""}`}
             >
               <p className="px-2 pt-1 text-xs font-semibold uppercase tracking-widest text-slate-600">
                 Scroll and choose
@@ -1220,13 +1393,15 @@ export default function App() {
               )}
               <div className="relative">
                 <ul
-                  className={`neu-scroll mt-2 h-64 snap-y snap-mandatory overflow-y-scroll px-2 py-1 sm:h-72 ${locked ? "opacity-50" : ""}`}
+                  className={`neu-scroll mt-2 h-64 snap-y snap-mandatory rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink overflow-y-scroll px-2 py-1 sm:h-72`}
                   aria-label="Questions"
+                  tabIndex={0}
                 >
                   {ORDER.map((k, i) => (
                     <li key={k} className="snap-center">
                       <button
                         disabled={locked}
+                        aria-pressed={picked === k}
                         onClick={() => {
                           setPicked(k);
                           setTab(null);
@@ -1288,16 +1463,24 @@ export default function App() {
                   Try synthetic demo data
                 </button>
                 <div className="mt-3 flex flex-wrap gap-4 text-xs">
-                  <a href="/demo/speculara-synthetic.csv" download className="text-ink underline">
+                  <a
+                    href="/demo/speculara-synthetic.csv"
+                    download
+                    className="inline-flex min-h-[var(--size-target)] min-w-[var(--size-target)] items-center rounded-lg px-2 py-2 text-ink underline"
+                  >
                     Demo CSV
                   </a>
-                  <a href="/demo/speculara-synthetic.xlsx" download className="text-ink underline">
+                  <a
+                    href="/demo/speculara-synthetic.xlsx"
+                    download
+                    className="inline-flex min-h-[var(--size-target)] min-w-[var(--size-target)] items-center rounded-lg px-2 py-2 text-ink underline"
+                  >
                     Demo XLSX
                   </a>
                   <a
                     href="/demo/speculara-text-synthetic.csv"
                     download
-                    className="text-ink underline"
+                    className="inline-flex min-h-[var(--size-target)] min-w-[var(--size-target)] items-center rounded-lg px-2 py-2 text-ink underline"
                   >
                     Text-only demo
                   </a>
@@ -1307,6 +1490,118 @@ export default function App() {
                   server memory and never saved.
                 </p>
               </div>
+              {candidate && (
+                <section
+                  aria-labelledby="upload-preview-title"
+                  className="neu-in mt-5 min-w-0 rounded-2xl p-4"
+                >
+                  <h2
+                    id="upload-preview-title"
+                    tabIndex={-1}
+                    className="font-display text-lg font-bold text-ink"
+                  >
+                    Upload preview
+                  </h2>
+                  <p className="mt-2 break-all font-semibold text-ink">{candidate.label}</p>
+                  {candidate.data.source_kind === "synthetic" && (
+                    <p className="mt-2 text-sm font-semibold text-wine">
+                      Synthetic demo: fictional records
+                    </p>
+                  )}
+                  <p className="mt-2 text-sm text-slate-700">
+                    {candidate.data.rows.toLocaleString()} rows. Review this file before using it.
+                    Your current results stay unchanged until you confirm.
+                  </p>
+                  <p className="mt-3 break-words text-sm text-slate-700">
+                    Detected columns:{" "}
+                    {(candidate.data.preview?.columns ?? candidate.data.columns).join(", ")}
+                  </p>
+                  {candidate.data.preview?.rows.length ? (
+                    <div
+                      className="mt-3 max-w-full overflow-x-auto rounded-lg"
+                      role="region"
+                      aria-label="Preview rows"
+                      tabIndex={0}
+                    >
+                      <table
+                        className="w-full table-fixed text-left text-xs"
+                        style={{
+                          minWidth: `${Math.max(280, candidate.data.preview.columns.length * 120)}px`,
+                        }}
+                      >
+                        <caption className="pb-2 text-left text-slate-700">
+                          First {Math.min(5, candidate.data.preview.rows.length)} rows of{" "}
+                          {candidate.data.preview.total_rows.toLocaleString()}
+                        </caption>
+                        <thead>
+                          <tr>
+                            {candidate.data.preview.columns.map((column) => (
+                              <th key={column} scope="col" className="p-2 [overflow-wrap:anywhere]">
+                                {column}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {candidate.data.preview.rows.slice(0, 5).map((row, index) => (
+                            <tr key={index}>
+                              {candidate.data.preview!.columns.map((column) => (
+                                <td
+                                  key={column}
+                                  className="border-t border-ink/10 p-2 align-top [overflow-wrap:anywhere]"
+                                >
+                                  {row[column] == null ? "—" : String(row[column])}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-slate-700">
+                      Row preview is unavailable for this response.
+                    </p>
+                  )}
+                  <h3 className="mt-4 font-semibold text-ink">What this file supports</h3>
+                  <ul className="mt-3 space-y-3">
+                    {ORDER.map((key) => {
+                      const info = moduleInfo(key, candidate.data);
+                      return (
+                        <li key={key} className="min-w-0 text-sm">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold text-ink">{META[key].tab}</span>
+                            <StatusBadge module={key} analysis={candidate.data} />
+                          </div>
+                          <p className="mt-1 break-words text-slate-700">
+                            {info.needed ?? info.finding}
+                          </p>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => commitDataset(candidate.data, candidate.label)}
+                      className="neu-btn min-h-11 rounded-xl px-4 text-sm text-white"
+                    >
+                      Use this dataset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCandidate(null);
+                        document.getElementById("upload")?.focus();
+                      }}
+                      className="neu-sm min-h-11 rounded-xl px-4 text-sm text-ink"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </section>
+              )}
               {locked && (
                 <p className="mt-2 px-2 text-center text-xs text-slate-600">
                   Upload data or try the synthetic demo to unlock modules.
@@ -1320,6 +1615,8 @@ export default function App() {
               key={`summary-${revision}-${viewRevision}`}
               className="neu result-arrive mb-6 rounded-3xl p-5"
               aria-label="Dataset summary"
+              id="dataset-summary"
+              tabIndex={-1}
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -1358,6 +1655,7 @@ export default function App() {
                     className="neu-sm min-h-11 rounded-xl px-4 text-sm text-wine"
                     disabled={busy}
                     onClick={() => {
+                      setCandidate(null);
                       setAnalysis(null);
                       setSource(null);
                       setUpdatedAt(null);
@@ -1376,7 +1674,9 @@ export default function App() {
                 {notice}
               </p>
               <details className="mt-4 text-base leading-7">
-                <summary className="font-semibold text-ink">About this data</summary>
+                <summary className="min-h-[var(--size-target)] content-center rounded-lg py-2 font-semibold text-ink">
+                  About this data
+                </summary>
                 <ul className="mt-3 list-disc space-y-3 pl-5 text-slate-700">
                   {source?.demo && <li>This demo uses made-up records.</li>}
                   <li>Results come from this file, not a connected social account.</li>
@@ -1406,6 +1706,7 @@ export default function App() {
             </section>
           )}
           <div id="result" tabIndex={-1} className="scroll-mt-24">
+            {analysis && <DecisionOverview key={`overview-${revision}`} />}
             {Primary ? (
               <>
                 <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
@@ -1422,7 +1723,7 @@ export default function App() {
                     Explore the others
                   </p>
                   <div
-                    className="no-bar mb-3 flex gap-3 overflow-x-auto p-2"
+                    className="mb-3 flex flex-wrap gap-3 p-2"
                     role="group"
                     aria-label="Analysis options"
                   >
@@ -1431,7 +1732,7 @@ export default function App() {
                         key={k}
                         aria-pressed={k === active}
                         onClick={() => setTab(k)}
-                        className={`min-h-11 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-sky ${k === active ? "neu-in font-semibold text-ink selection-pop" : "neu-sm text-slate-600 hover:text-ink"}`}
+                        className={`min-h-[var(--size-target)] min-w-[var(--size-target)] max-w-full rounded-xl px-4 py-2.5 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-sky ${k === active ? "neu-in font-semibold text-ink selection-pop" : "neu-sm text-slate-600 hover:text-ink"}`}
                       >
                         {META[k].tab}
                       </button>
@@ -1474,7 +1775,9 @@ export default function App() {
               behind each result.
             </p>
             <details className="mt-3">
-              <summary>Data guide</summary>
+              <summary className="min-h-[var(--size-target)] content-center rounded-lg py-2">
+                Data guide
+              </summary>
               <p className="mt-2">
                 Use one row per observation. Supported columns: date, post_id, category, region,
                 views, likes, saves, comments, sales, text. Counts must be nonnegative; blanks mean

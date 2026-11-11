@@ -48,3 +48,7 @@ Forecasts require 14–365 consecutive complete UTC daily dates, no invalid date
 Sentiment is unchanged: small English/Filipino lexicon, negation treated neutral; unsupported sarcasm, context and validated multilingual NLP. Counts/keywords are heuristic observations; question/request rows may overlap and are not unique buyers. No raw representative comments or new NLP dependency.
 
 Six modules, deterministic chat and full Markdown/JSON exports share computed results. Specific growth, rate and ranking intents precede generic forecast/trend/next/sales routing. Text-only uploads show explicit unavailable numeric sections. Processing stays stateless and in memory; upload limits remain 5 MB, 20,000 rows, 50 columns and 30 MB expanded XLSX. Production hardening and NLP evaluation remain deferred.
+
+## Approved decision workflow
+
+Included: a four-part Decision Brief, independent Views/Saves/Questions/Sales counts, evidence-backed experiment cards with measurement guidance, optional supplied post identifiers/links, and a confirmable five-row upload preview with detected columns and module readiness. Existing timestamps, copy actions, download feedback, reduced-motion support and deterministic dataset-aware chat remain. No tracked cross-platform funnel, attributed conversion, promised experiment uplift, live integrations or verified external links are claimed. See docs/decision-workflow.md.

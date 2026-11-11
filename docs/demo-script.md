@@ -66,3 +66,17 @@ Sentiment is unchanged: small English/Filipino lexicon, negation treated neutral
 Six modules, deterministic chat and full Markdown/JSON exports share computed results. Specific growth, rate and ranking intents precede generic forecast/trend/next/sales routing. Text-only uploads show explicit unavailable numeric sections. Processing stays stateless and in memory; upload limits remain 5 MB, 20,000 rows, 50 columns and 30 MB expanded XLSX. Production hardening and NLP evaluation remain deferred.
 
 Show Charts paired numerators, denominators, excluded rows and repeated-ID post ranking explanation. Show Demand exact dated windows. Ask “sales rate”, “sales growth trend” and “best post sales”. In Predict read both model errors, selected model and holdout dates. In Correlation point to Pearson, Spearman and n. Export includes Ratios, Period comparisons, Rankings and full schema 2 result.
+
+## Decision-first presentation path (three minutes)
+
+0:00-0:25: State the challenge: turn views, saves and sales into the next decision. Load the clearly labeled synthetic demo; explain that its records are fictional.
+
+0:25-1:00: Read the Decision Brief. Show the observed weekly change, why it matters, one test and how to measure it. Explain that a pattern does not prove cause.
+
+1:00-1:25: Show Views, Saves, Questions and Sales as separate counts. Point out missing questions if text was not supplied. Do not call the sequence tracked conversion.
+
+1:25-2:00: Open an experiment card. Read evidence, proposed test and comparable-exposure measurement. Show optional evidence rather than reading every statistic.
+
+2:00-2:30: Ask Speculara for the brief or how to measure a test. Show that the answer matches the dashboard. Download the report and point to its plain-language findings.
+
+2:30-3:00: Upload the text-only synthetic file. Show detected columns, available modules and clear missing-data instructions before confirming. Finish with the next test, not a promised improvement. No live social account is connected.

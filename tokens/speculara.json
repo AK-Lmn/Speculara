@@ -1,0 +1,453 @@
+{
+  "palette": {
+    "ink": {
+      "$type": "color",
+      "$value": "#29348f",
+      "$extensions": {
+        "speculara": {
+          "css": "--color-ink"
+        }
+      }
+    },
+    "mist": {
+      "$type": "color",
+      "$value": "#f1f5f9",
+      "$extensions": {
+        "speculara": {
+          "css": "--color-mist"
+        }
+      }
+    },
+    "sky": {
+      "$type": "color",
+      "$value": "#38bdf8",
+      "$extensions": {
+        "speculara": {
+          "css": "--color-sky"
+        }
+      }
+    },
+    "cream": {
+      "$type": "color",
+      "$value": "#f9f5f1",
+      "$extensions": {
+        "speculara": {
+          "css": "--color-cream"
+        }
+      }
+    },
+    "wine": {
+      "$type": "color",
+      "$value": "#8f2934",
+      "$extensions": {
+        "speculara": {
+          "css": "--color-wine"
+        }
+      }
+    },
+    "white": {
+      "$type": "color",
+      "$value": "#ffffff",
+      "$extensions": {
+        "speculara": {
+          "css": "--color-white"
+        }
+      }
+    },
+    "primary": {
+      "$type": "color",
+      "$value": "#1e2761",
+      "$extensions": {
+        "speculara": {
+          "css": "--color-primary"
+        }
+      }
+    },
+    "secondary": {
+      "$type": "color",
+      "$value": "#465468",
+      "$extensions": {
+        "speculara": {
+          "css": "--color-secondary"
+        }
+      }
+    },
+    "action-start": {
+      "$type": "color",
+      "$value": "#3544ad",
+      "$extensions": {
+        "speculara": {
+          "css": "--color-action-start"
+        }
+      }
+    },
+    "hover-start": {
+      "$type": "color",
+      "$value": "#303d9f",
+      "$extensions": {
+        "speculara": {
+          "css": "--color-hover-start"
+        }
+      }
+    },
+    "shadow-dark": {
+      "$type": "color",
+      "$value": "#cbd3dd",
+      "$extensions": {
+        "speculara": {
+          "css": "--color-shadow-dark"
+        }
+      }
+    },
+    "track": {
+      "$type": "color",
+      "$value": "#e2e8f0",
+      "$extensions": {
+        "speculara": {
+          "css": "--color-track"
+        }
+      }
+    }
+  },
+  "semantic": {
+    "text": {
+      "primary": {
+        "$type": "color",
+        "$value": "{palette.primary}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-text-primary"
+          }
+        }
+      },
+      "secondary": {
+        "$type": "color",
+        "$value": "{palette.secondary}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-text-secondary"
+          }
+        }
+      },
+      "link": {
+        "$type": "color",
+        "$value": "{palette.ink}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-text-link"
+          }
+        }
+      },
+      "on-action": {
+        "$type": "color",
+        "$value": "{palette.white}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-text-on-action"
+          }
+        }
+      },
+      "tertiary": {
+        "$type": "color",
+        "$value": "{palette.secondary}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-text-tertiary"
+          }
+        }
+      }
+    },
+    "surface": {
+      "page": {
+        "$type": "color",
+        "$value": "{palette.mist}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-surface-page"
+          }
+        }
+      },
+      "card": {
+        "$type": "color",
+        "$value": "{palette.mist}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-surface-card"
+          }
+        }
+      },
+      "raised": {
+        "$type": "color",
+        "$value": "{palette.cream}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-surface-raised"
+          }
+        }
+      },
+      "highlight": {
+        "$type": "color",
+        "$value": "{palette.white}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-surface-highlight"
+          }
+        }
+      }
+    },
+    "action": {
+      "primary": {
+        "$type": "color",
+        "$value": "{palette.ink}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-action-primary"
+          }
+        }
+      },
+      "destructive": {
+        "$type": "color",
+        "$value": "{palette.wine}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-action-destructive"
+          }
+        }
+      },
+      "primary-start": {
+        "$type": "color",
+        "$value": "{palette.action-start}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-action-primary-start"
+          }
+        }
+      },
+      "hover-start": {
+        "$type": "color",
+        "$value": "{palette.hover-start}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-action-hover-start"
+          }
+        }
+      },
+      "hover-end": {
+        "$type": "color",
+        "$value": "{palette.ink}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-action-hover-end"
+          }
+        }
+      }
+    },
+    "border": {
+      "strong": {
+        "$type": "color",
+        "$value": "{palette.secondary}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-border-strong"
+          }
+        }
+      },
+      "default": {
+        "$type": "color",
+        "$value": "{palette.shadow-dark}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-border-default"
+          }
+        }
+      }
+    },
+    "focus": {
+      "$type": "color",
+      "$value": "{palette.ink}",
+      "$extensions": {
+        "speculara": {
+          "css": "--color-focus"
+        }
+      }
+    },
+    "chart": {
+      "grid": {
+        "$type": "color",
+        "$value": "{palette.shadow-dark}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-chart-grid"
+          }
+        }
+      },
+      "primary": {
+        "$type": "color",
+        "$value": "{palette.ink}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-chart-primary"
+          }
+        }
+      },
+      "secondary": {
+        "$type": "color",
+        "$value": "{palette.sky}",
+        "$extensions": {
+          "speculara": {
+            "css": "--color-chart-secondary"
+          }
+        }
+      }
+    }
+  },
+  "elevation": {
+    "raised": {
+      "$type": "string",
+      "$value": "9px 9px 18px #cbd3dd, -9px -9px 18px #ffffff",
+      "$extensions": {
+        "speculara": {
+          "css": "--shadow-raised"
+        }
+      }
+    },
+    "small": {
+      "$type": "string",
+      "$value": "5px 5px 10px #cbd3dd, -5px -5px 10px #ffffff",
+      "$extensions": {
+        "speculara": {
+          "css": "--shadow-small"
+        }
+      }
+    },
+    "inset": {
+      "$type": "string",
+      "$value": "inset 5px 5px 10px #cbd3dd, inset -5px -5px 10px #ffffff",
+      "$extensions": {
+        "speculara": {
+          "css": "--shadow-inset"
+        }
+      }
+    },
+    "pressed": {
+      "$type": "string",
+      "$value": "inset 3px 3px 6px #cbd3dd, inset -3px -3px 6px #ffffff",
+      "$extensions": {
+        "speculara": {
+          "css": "--shadow-pressed"
+        }
+      }
+    },
+    "action-pressed": {
+      "$type": "string",
+      "$value": "inset 3px 3px 6px rgba(0, 0, 0, 0.25)",
+      "$extensions": {
+        "speculara": {
+          "css": "--shadow-action-pressed"
+        }
+      }
+    },
+    "chart": {
+      "$type": "string",
+      "$value": "2px 2px 5px rgba(41, 52, 143, 0.25)",
+      "$extensions": {
+        "speculara": {
+          "css": "--shadow-chart"
+        }
+      }
+    }
+  },
+  "font": {
+    "display": {
+      "$type": "fontFamily",
+      "$value": [
+        "Sora",
+        "sans-serif"
+      ],
+      "$extensions": {
+        "speculara": {
+          "css": "--font-display"
+        }
+      }
+    },
+    "sans": {
+      "$type": "fontFamily",
+      "$value": [
+        "Manrope",
+        "system-ui",
+        "sans-serif"
+      ],
+      "$extensions": {
+        "speculara": {
+          "css": "--font-sans"
+        }
+      }
+    },
+    "size": {
+      "chart-label": {
+        "$type": "dimension",
+        "$value": {
+          "value": 12,
+          "unit": "px"
+        },
+        "$extensions": {
+          "speculara": {
+            "css": "--font-size-chart-label"
+          }
+        }
+      }
+    }
+  },
+  "size": {
+    "target": {
+      "$type": "dimension",
+      "$value": {
+        "value": 44,
+        "unit": "px"
+      },
+      "$extensions": {
+        "speculara": {
+          "css": "--size-target"
+        }
+      }
+    }
+  },
+  "motion": {
+    "fast": {
+      "$type": "duration",
+      "$value": {
+        "value": 150,
+        "unit": "ms"
+      },
+      "$extensions": {
+        "speculara": {
+          "css": "--motion-fast"
+        }
+      }
+    },
+    "arrive": {
+      "$type": "duration",
+      "$value": {
+        "value": 420,
+        "unit": "ms"
+      },
+      "$extensions": {
+        "speculara": {
+          "css": "--motion-arrive"
+        }
+      }
+    },
+    "select": {
+      "$type": "duration",
+      "$value": {
+        "value": 220,
+        "unit": "ms"
+      },
+      "$extensions": {
+        "speculara": {
+          "css": "--motion-select"
+        }
+      }
+    }
+  }
+}

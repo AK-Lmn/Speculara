@@ -24,12 +24,12 @@ const a = {
   ],
 } satisfies Analysis;
 test("module states and takeaways reflect available evidence", () => {
-  assert.equal(moduleInfo("charts", null).status, "Waiting for data");
+  assert.equal(moduleInfo("charts", null).status, "Needs more data");
   assert.equal(moduleInfo("charts", a).status, "Ready");
   assert.match(moduleInfo("charts", a).finding, /100 views/);
-  assert.equal(moduleInfo("sentiment", a).status, "Needs data");
+  assert.equal(moduleInfo("sentiment", a).status, "Needs more data");
   assert.match(moduleInfo("sentiment", a).needed!, /comments or reviews/);
-  assert.equal(moduleInfo("predict", a).status, "Needs data");
+  assert.equal(moduleInfo("predict", a).status, "Needs more data");
   assert.match(moduleInfo("predict", a).needed!, /14.*365/);
   const p = {
     a: "views",
@@ -50,4 +50,15 @@ test("freshness and priorities describe analysis time and suggested order only",
   assert.equal(priorityLabel(0), "Start here");
   assert.equal(priorityLabel(1), "Try next");
   assert.equal(priorityLabel(3), "Also consider");
+});
+
+test("fallback recommendation needs evidence; estimates and word checks are early findings", () => {
+  assert.equal(moduleInfo("recommend", a).status, "Needs more data");
+  assert.equal(
+    moduleInfo("sentiment", {
+      ...a,
+      sentiment: { available: true, reason: null, counts: { neutral: 2 } },
+    }).status,
+    "Early finding",
+  );
 });

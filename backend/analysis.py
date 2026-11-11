@@ -2,6 +2,8 @@
 
 import json
 
+from backend.decisions import add_decision_fields, decision_answer, decision_report
+
 import csv
 
 import io
@@ -96,7 +98,7 @@ def parse_file(data: bytes, filename: str) -> pd.DataFrame:
 
                     raise ValueError('Use at most 20,000 data rows.')
 
-            frame = pd.read_csv(io.StringIO(text), nrows=MAX_ROWS + 1)
+            frame = pd.read_csv(io.StringIO(text), nrows=MAX_ROWS + 1, dtype={header: 'string' for header, normalized in zip(headers, normalize_headers(headers)) if normalized == 'post_id'})
 
         elif filename.lower().endswith('.xlsx'):
 
@@ -166,7 +168,7 @@ def build_recommendations(df: pd.DataFrame, ratios: dict, rankings: dict, correl
 
     if rate['available']:
 
-        recommendations.append({'title':'Test the path from attention to purchase',
+        recommendations.append({'experiment_kind':'sales', 'title':'Test the path from attention to purchase',
 
             'evidence':f"{rate['numerator']:g} sales / {rate['denominator']:g} views = {rate['percent']:.2f}% across {rate['n']} complete rows.",
 
@@ -178,7 +180,7 @@ def build_recommendations(df: pd.DataFrame, ratios: dict, rankings: dict, correl
 
         top = categories[0]
 
-        recommendations.append({'title':f"Test more {top['label']} content",
+        recommendations.append({'experiment_kind':'sales', 'title':f"Test more {top['label']} content",
 
             'evidence':f"{top['numerator']:g} sales / {top['views']:g} views = {top['percent']:.2f}% across {top['n']} complete rows; highest eligible category sales/view rate.",
 
@@ -212,7 +214,7 @@ def build_recommendations(df: pd.DataFrame, ratios: dict, rankings: dict, correl
 
                     top = candidates.sort_values(['views', 'label'], ascending=[False, True]).iloc[0]
 
-                    recommendations.append({'title':f"Check offer and checkout for {top['label']}",
+                    recommendations.append({'experiment_kind':'sales', 'post_id':str(top['label']), 'title':f"Check offer and checkout for {top['label']}",
 
                         'evidence':f"{top['sales']:g} sales / {top['views']:g} views = {top['sales']/top['views']*100:.2f}%, below paired overall {rate['percent']:.2f}% across {rate['n']} complete rows. {len(posts)} eligible posts; 75th percentile views = {threshold:g} (linear interpolation).",
 
@@ -222,11 +224,11 @@ def build_recommendations(df: pd.DataFrame, ratios: dict, rankings: dict, correl
 
         p = next((pair for pair in correlations if 'sales' in (pair['a'], pair['b'])), correlations[0])
 
-        recommendations.append({'title':f"Investigate {p['a']} and {p['b']} together",'evidence':f"Pearson r = {p['r']:.3f}, n = {p['n']} complete pairs.",'action':'Inspect the underlying posts and test a plausible mechanism. Association does not establish causation; repeated dates may violate independence.'})
+        recommendations.append({'experiment_kind':'relationship', 'title':f"Investigate {p['a']} and {p['b']} together",'evidence':f"Pearson r = {p['r']:.3f}, n = {p['n']} complete pairs.",'action':'Inspect the underlying posts and test a plausible mechanism. Association does not establish causation; repeated dates may violate independence.'})
 
     if demand.get('inquiries',0):
 
-        recommendations.append({'title':'Answer observed buying questions','evidence':f"{demand['inquiries']} text rows contain question signals.",'action':'Review those comments and publish a buying FAQ. Verify intent manually before calling these leads.'})
+        recommendations.append({'experiment_kind':'questions', 'title':'Answer observed buying questions','evidence':f"{demand['inquiries']} text rows contain question signals.",'action':'Review those comments and publish a buying FAQ. Verify intent manually before calling these leads.'})
 
     if not recommendations:
 
@@ -267,6 +269,8 @@ def analyze(frame: pd.DataFrame) -> dict:
     df = frame.copy()
 
     df.columns = normalize_headers(df.columns)
+
+    preview_frame = df.copy()
 
     warnings = []
 
@@ -402,7 +406,10 @@ def analyze(frame: pd.DataFrame) -> dict:
 
     warnings.append('Rows are treated as independent records; verify grain and avoid repeated post totals across comment rows. No social account is connected.')
 
-    return {'schema_version':2,'ratios':ratios,'periods':periods,'rankings':rankings,'source_kind':source_kind,'rows':len(df),'columns':list(df.columns),'metrics':list(totals),'missing':missing,'totals':totals,'warnings':warnings,'charts':charts,'correlation':correlations,'predict':forecast,'sentiment':sentiment,'demand':demand,'recommend':recommendations}
+    result = {'schema_version':2,'ratios':ratios,'periods':periods,'rankings':rankings,'source_kind':source_kind,'rows':len(df),'columns':list(df.columns),'metrics':list(totals),'missing':missing,'totals':totals,'warnings':warnings,'charts':charts,'correlation':correlations,'predict':forecast,'sentiment':sentiment,'demand':demand,'recommend':recommendations}
+
+    add_decision_fields(result, preview_frame, period_summary)
+    return result
 
 
 
@@ -507,6 +514,8 @@ def demand_summary(result):
 def answer(question: str, result: dict) -> str:
     q = question.lower()
     if re.search(r'technical|pearson|spearman|p.value|mae|model|method|calculation|threshold|forecast error', q): return technical_answer(question, result)
+    extra = decision_answer(question, result)
+    if extra is not None: return extra
     if re.search(r'negative|correl|relat|link', q) and not re.search(r'comment|review|sentiment|feedback', q):
         pairs = result['correlation']
         pair = next((p for p in pairs if p['r'] < 0), pairs[0] if pairs else None) if 'negative' in q else pairs[0] if pairs else None
@@ -564,5 +573,5 @@ def report(result: dict, source: str = 'Current dataset') -> str:
 
     sections = [('Recommended decisions','recommend'),('Ratios','ratio'),('Period comparisons','growth'),('Rankings','rank'),('Forecast','forecast'),('Correlation','correlation'),('Sentiment','sentiment'),('Demand','demand')]
 
-    return '# Speculara analysis report\n\nSource: '+source+'\nSchema version: 2\n\n'+answer('summary',result)+''.join('\n\n## '+title+'\n\n'+(technical_answer(intent,result) if intent != 'recommend' else answer(intent,result)) for title,intent in sections)+'\n\n## Limitations\n\n'+CALCULATION_LIMITS+'\n'+'\n'.join('- '+w for w in result['warnings'])+'\n\n## Full computed results\n\n```json\n'+json.dumps(result,indent=2,allow_nan=False)+'\n```\n'
+    return '# Speculara analysis report\n\nSource: '+source+'\nSchema version: 2\n\n'+decision_report(result)+'\n\n'+answer('summary',result)+''.join('\n\n## '+title+'\n\n'+(technical_answer(intent,result) if intent != 'recommend' else answer(intent,result)) for title,intent in sections)+'\n\n## Limitations\n\n'+CALCULATION_LIMITS+'\n'+'\n'.join('- '+w for w in result['warnings'])+'\n\n## Full computed results\n\n```json\n'+json.dumps(result,indent=2,allow_nan=False)+'\n```\n'
 

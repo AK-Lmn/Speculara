@@ -11,6 +11,9 @@ async function upload(page: import("@playwright/test").Page) {
   await page
     .locator("#upload")
     .setInputFiles({ name: "weekly.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+  await page
+    .getByRole("button", { name: "Use this dataset", exact: true })
+    .click({ timeout: 30000 });
   await expect(page.getByRole("region", { name: "Dataset summary" })).toContainText("14 rows", {
     timeout: 30000,
   });
